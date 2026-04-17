@@ -125,12 +125,24 @@
     background: #f0f0f0;
     border-bottom: 2px solid #111;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     font-size: 12px;
     color: #999;
     letter-spacing: 0.05em;
   }
+  .card-img-placeholder a {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: #111;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    border-bottom: 1px solid #111;
+    padding-bottom: 1px;
+  }
+  .card-img-placeholder a:hover { color: #555; border-color: #555; }
 
   .card-body { padding: 16px 18px; }
 
@@ -495,10 +507,13 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 let allSites = [];
 let markers = [];
 
-// ── Hide load button on GitHub Pages ─────────────────
+// ── GitHub Pages mode ────────────────────────────────
 if (window.location.hostname.includes('github.io')) {
   document.getElementById('load-label').style.display = 'none';
   document.getElementById('lang-btn').style.marginLeft = '0';
+  // Hide unreviewed/rejected pins — public map shows only verified sites
+  document.getElementById('f-pending').checked = false;
+  document.getElementById('f-rejected').checked = false;
 }
 
 // ── Auto-load default data files ─────────────────────
@@ -644,11 +659,11 @@ function buildCard(s) {
     ? `https://www.google.com/maps?q=&layer=c&cbll=${s.latitude},${s.longitude}`
     : '';
   const svLinkHtml = svLink
-    ? `<a href="${svLink}" target="_blank" style="color:#666;font-size:11px;letter-spacing:.05em;text-decoration:none;border-bottom:1px solid #999;">${t.svLink}</a>`
-    : t.noImage;
+    ? `<a href="${svLink}" target="_blank">${esc(t.svLink)}</a>`
+    : `<span>${esc(t.noImage)}</span>`;
 
   const imgHtml = imgUrl
-    ? `<img class="card-img" src="${imgUrl}" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>${svLink ? `<a href=\\'${svLink}\\' target=\\'_blank\\' style=\\'color:#666;font-size:11px;letter-spacing:.05em;text-decoration:none;border-bottom:1px solid #999;\\'>${t.svLink}</a>` : t.noImage}</div>'">`
+    ? `<img class="card-img" src="${imgUrl}" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>${svLink ? `<a href=\\'${svLink}\\' target=\\'_blank\\'>${esc(t.svLink)}</a>` : `<span>${esc(t.noImage)}</span>`}</div>'">`
     : `<div class="card-img-placeholder">${svLinkHtml}</div>`;
 
   const areaLabel = s.estimated_area_m2
