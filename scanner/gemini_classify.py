@@ -9,29 +9,35 @@ import re
 import time
 from pathlib import Path
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
-GEMINI_MODEL = 'gemini-2.0-flash'
-REQUESTS_PER_MINUTE = 14   # stay just under 15 RPM free tier limit
+GEMINI_MODEL = 'gemini-2.5-flash'
+REQUESTS_PER_MINUTE = 8    # conservative — image requests are token-heavy
 
-CLASSIFICATION_PROMPT = """You are reviewing a street-level photo taken in San Salvador de Jujuy, Argentina.
+CLASSIFICATION_PROMPT = """You are analyzing a street-level photo from San Salvador de Jujuy, Argentina to detect ILLEGAL DUMP SITES (microbasurales).
 
-Your job is to identify any visible roadside trash, illegal dumping, or informal waste accumulation.
+A microbasural is a VISIBLE PILE of mixed solid household waste: plastic bags, bottles, household items, mattresses, or similar refuse — accumulated informally on public land.
 
-Look for:
-- Piles of household garbage or mixed waste on or near the road
-- Construction debris dumped on public land
-- Bags, mattresses, appliances, or other large items abandoned roadside
-- Informal dumping areas where multiple items have accumulated
-- Burned waste or ash piles on roadsides
+CONFIRM as waste site ONLY if you clearly see:
+- A pile or accumulation of plastic bags, bottles, or household trash (NOT just a few scattered pieces of litter)
+- Multiple thrown-away items covering several square meters of ground
+- Clear illegal dumping of household or mixed solid waste on a roadside, vacant lot, or ravine
 
-Do NOT flag:
-- Legitimate garbage bins or collection points
-- Neatly bagged trash at a curb awaiting pickup
-- Construction sites with proper enclosures
-- Normal street clutter or parked vehicles
+REJECT (mark is_waste_site: false) if you see ANY of the following — even if the scene looks "rough" or informal:
+- Normal unpaved or dirt roads (very common in Jujuy — not a waste indicator)
+- Overgrown vacant lots, weeds, or dry vegetation
+- Under-construction buildings or construction materials (bricks, sand, scaffolding)
+- Highway embankments, road cuts, or burned roadside vegetation
+- Scrap metal yards, junkyards, or vehicle storage
+- Roadside litter (a few pieces scattered — not a dump)
+- Clean residential streets, even if unpaved or informal
+- Agricultural or industrial areas without visible waste piles
+- Anything where you are uncertain — err strongly toward rejection
 
-Respond ONLY with valid JSON in this exact format:
+Important context: San Salvador de Jujuy is a mid-sized Argentine city with many informal neighborhoods. Unpaved roads, exposed brick buildings, and overgrown lots are NORMAL and should NOT be flagged.
+
+Respond ONLY with valid JSON:
 {
   "is_waste_site": true or false,
   "confidence": 0.0 to 1.0,
@@ -46,27 +52,32 @@ def _encode_image(path):
     return base64.standard_b64encode(Path(path).read_bytes()).decode('utf-8')
 
 
-def _classify_single(image_paths, model):
-    """Classify one location using Gemini Flash."""
-    parts = []
-    for path in image_paths:
-        parts.append({
-            'inline_data': {
-                'mime_type': 'image/jpeg',
-                'data': _encode_image(path),
-            }
-        })
-    parts.append(CLASSIFICATION_PROMPT)
+def _classify_single(client, image_paths, max_retries=5):
+    """Classify one location using Gemini Flash. Retries on quota errors."""
+    img_data = _encode_image(image_paths[0])  # forward image only — halves token usage
+    contents = [
+        types.Part.from_bytes(data=base64.b64decode(img_data), mime_type='image/jpeg'),
+        CLASSIFICATION_PROMPT,
+    ]
 
-    response = model.generate_content(parts)
-    raw = response.text.strip()
-    raw = re.sub(r'^```(?:json)?\s*', '', raw)
-    raw = re.sub(r'\s*```$', '', raw)
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f'Bad JSON from Gemini: {e}\nRaw: {raw}')
+    delay = 30
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(model=GEMINI_MODEL, contents=contents)
+            raw = response.text.strip()
+            raw = re.sub(r'^```(?:json)?\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            return json.loads(raw)
+        except Exception as e:
+            msg = str(e)
+            if '429' in msg or 'quota' in msg.lower() or 'rate' in msg.lower():
+                if attempt < max_retries - 1:
+                    print(f'      Rate limit — waiting {delay}s (attempt {attempt+1}/{max_retries})')
+                    time.sleep(delay)
+                    delay = min(delay * 2, 120)
+                    continue
+            raise
+    raise RuntimeError('Max retries exceeded')
 
 
 def classify_with_gemini(candidates, api_key, confidence_threshold=0.40, checkpoint_path=None):
@@ -75,8 +86,7 @@ def classify_with_gemini(candidates, api_key, confidence_threshold=0.40, checkpo
     Saves checkpoint after every 50 locations so progress isn't lost.
     Rate-limited to stay within free tier (15 RPM).
     """
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    client = genai.Client(api_key=api_key)
 
     # Load existing checkpoint if resuming
     done_coords = set()
@@ -97,7 +107,7 @@ def classify_with_gemini(candidates, api_key, confidence_threshold=0.40, checkpo
     for i, c in enumerate(remaining):
         t0 = time.time()
         try:
-            result = _classify_single(c['sv_paths'], model)
+            result = _classify_single(client, c['sv_paths'])
             if result.get('is_waste_site') and result.get('confidence', 0) >= confidence_threshold:
                 confirmed.append({**c, 'classification': result, 'reviewed_by': 'gemini-flash'})
         except Exception as e:
