@@ -393,11 +393,12 @@
 <header>
   <div>
     <h1>Lupa — Jujuy, Argentina</h1>
-    <div class="sub">Satellite + Street View waste detection</div>
+    <div class="sub" id="header-sub">Satellite + Street View waste detection / Detección de microbasurales</div>
   </div>
-  <div style="display:flex;gap:20px;align-items:center;">
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button class="load-btn" id="lang-btn" onclick="toggleLang()" style="background:#fff;color:#111;border:2px solid #111;">ES / EN</button>
     <input type="file" id="file-input" accept=".json" multiple>
-    <label for="file-input" class="load-btn">Load data</label>
+    <label for="file-input" class="load-btn" id="load-label">Load data</label>
   </div>
 </header>
 
@@ -609,22 +610,29 @@ function renderAll() {
 }
 
 function buildCard(s) {
+  const t = STRINGS[lang];
   const mapsUrl = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
   const sev = s.severity || 'unknown';
   const src = s.source || 'satellite';
   const verdict = s.human_verdict;
   const verdictHtml = s.source === 'ground_truth'
-    ? `<span class="tag high" style="text-transform:uppercase;">★ GROUND TRUTH</span>`
+    ? `<span class="tag high" style="text-transform:uppercase;">${t.groundTruthBadge}</span>`
     : verdict && verdict !== 'pending' && verdict !== 'no_image'
       ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${verdict}</span>`
       : '';
 
-  // Pick best image
+  // Pick best image — local file, or placeholder with Street View link
   const imgUrl = s.sv_path_forward || s.satellite_tile_url || '';
+  const svLink = (s.latitude && s.longitude)
+    ? `https://www.google.com/maps?q=&layer=c&cbll=${s.latitude},${s.longitude}`
+    : '';
+  const svLinkHtml = svLink
+    ? `<a href="${svLink}" target="_blank" style="color:#666;font-size:11px;letter-spacing:.05em;text-decoration:none;border-bottom:1px solid #999;">${t.svLink}</a>`
+    : t.noImage;
 
   const imgHtml = imgUrl
-    ? `<img class="card-img" src="${imgUrl}" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>NO IMAGE</div>'">`
-    : `<div class="card-img-placeholder">NO IMAGE</div>`;
+    ? `<img class="card-img" src="${imgUrl}" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>${svLink ? `<a href=\\'${svLink}\\' target=\\'_blank\\' style=\\'color:#666;font-size:11px;letter-spacing:.05em;text-decoration:none;border-bottom:1px solid #999;\\'>${t.svLink}</a>` : t.noImage}</div>'">`
+    : `<div class="card-img-placeholder">${svLinkHtml}</div>`;
 
   const areaLabel = s.estimated_area_m2
     ? s.estimated_area_m2 >= 10000
@@ -655,34 +663,131 @@ function buildCard(s) {
           ${s.nbi_label ? `<span class="tag nbi-${s.nbi_label.replace(' ','-')}">NBI ${s.nbi_label.toUpperCase()}</span>` : ''}
         </div>
         ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${s.name}</div>` : ''}
-        ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">Review: ${s.review_notes}</div>` : ''}
+        ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">${t.reviewLabel}: ${s.review_notes}</div>` : ''}
         <div class="card-desc">${s.description_es || '—'}</div>
         <div class="card-meta">
           <div class="meta-row">
-            <div class="meta-label">AI confidence</div>
+            <div class="meta-label">${t.metaConf}</div>
             <div class="meta-val">${confLabel}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">Area</div>
+            <div class="meta-label">${t.metaArea}</div>
             <div class="meta-val">${areaLabel}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">NBI (poverty)</div>
+            <div class="meta-label">${t.metaNbi}</div>
             <div class="meta-val">${s.nbi_pct != null ? s.nbi_pct + '%' : '—'}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">Source</div>
+            <div class="meta-label">${t.metaSource}</div>
             <div class="meta-val">${src}</div>
           </div>
         </div>
         ${historyHtml}
         <div class="card-footer">
           <span class="coords">${s.latitude?.toFixed(4)}, ${s.longitude?.toFixed(4)}</span>
-          <a class="maps-link" href="${mapsUrl}" target="_blank">Google Maps →</a>
+          <a class="maps-link" href="${mapsUrl}" target="_blank">${t.mapsLink}</a>
         </div>
       </div>
     </div>`;
 }
+
+// ── Language toggle ───────────────────────────────────
+let lang = 'es';
+const STRINGS = {
+  en: {
+    sub: 'Satellite + Street View illegal dump detection — San Salvador de Jujuy',
+    loadBtn: 'Load data',
+    filterTitle: 'Filter',
+    legendTitle: 'Legend',
+    fConfirmed: 'Human confirmed',
+    fBorderline: 'Borderline',
+    fPending: 'Pending review',
+    fRejected: 'Rejected',
+    fSatellite: 'Satellite sites',
+    fGroundTruth: 'Mariano (ground truth)',
+    statSites: 'sites',
+    statConfirmed: 'human confirmed',
+    statHigh: 'high severity',
+    statSat: 'satellite',
+    statSv: 'street view',
+    statNbi: 'avg NBI',
+    statDual: 'dual confirmed',
+    statGt: 'ground truth',
+    metaConf: 'AI confidence',
+    metaArea: 'Area',
+    metaNbi: 'NBI (poverty)',
+    metaSource: 'Source',
+    mapsLink: 'Google Maps →',
+    svLink: 'View on Street View →',
+    noImage: 'NO IMAGE',
+    groundTruthBadge: '★ GROUND TRUTH',
+    reviewLabel: 'Review',
+  },
+  es: {
+    sub: 'Detección satelital y Street View de microbasurales — San Salvador de Jujuy',
+    loadBtn: 'Cargar datos',
+    filterTitle: 'Filtrar',
+    legendTitle: 'Leyenda',
+    fConfirmed: 'Confirmado por humano',
+    fBorderline: 'Dudoso',
+    fPending: 'Pendiente de revisión',
+    fRejected: 'Rechazado',
+    fSatellite: 'Sitios satelitales',
+    fGroundTruth: 'Mariano (datos reales)',
+    statSites: 'sitios',
+    statConfirmed: 'confirmados',
+    statHigh: 'severidad alta',
+    statSat: 'satelital',
+    statSv: 'street view',
+    statNbi: 'NBI prom.',
+    statDual: 'doble confirmación',
+    statGt: 'datos reales',
+    metaConf: 'Confianza IA',
+    metaArea: 'Área',
+    metaNbi: 'NBI (pobreza)',
+    metaSource: 'Fuente',
+    mapsLink: 'Google Maps →',
+    svLink: 'Ver en Street View →',
+    noImage: 'SIN IMAGEN',
+    groundTruthBadge: '★ DATO REAL',
+    reviewLabel: 'Revisión',
+  }
+};
+
+function toggleLang() {
+  lang = lang === 'es' ? 'en' : 'es';
+  applyLang();
+  renderAll(); // rebuild cards in new language
+}
+
+function applyLang() {
+  const t = STRINGS[lang];
+  document.getElementById('header-sub').textContent = t.sub;
+  document.getElementById('load-label').textContent = t.loadBtn;
+  document.getElementById('lang-btn').textContent = lang === 'es' ? 'EN' : 'ES';
+
+  // Filter labels
+  const labels = {
+    'f-confirmed': t.fConfirmed,
+    'f-borderline': t.fBorderline,
+    'f-pending': t.fPending,
+    'f-rejected': t.fRejected,
+    'f-satellite': t.fSatellite,
+    'f-ground-truth': t.fGroundTruth,
+  };
+  Object.entries(labels).forEach(([id, text]) => {
+    const el = document.getElementById(id);
+    if (el) el.parentElement.childNodes[1].textContent = ' ' + text;
+  });
+
+  // Panel titles
+  document.querySelector('#legend .leg-title').textContent = t.legendTitle;
+  document.querySelector('#filter-bar .fb-title').textContent = t.filterTitle;
+}
+
+// Apply default language on load
+applyLang();
 
 function updateStats() {
   const f = getFilters();
