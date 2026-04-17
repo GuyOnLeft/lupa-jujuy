@@ -656,7 +656,7 @@ function buildCard(s) {
   // Pick best image — local file, or placeholder with Street View link
   const imgUrl = s.sv_path_forward || s.satellite_tile_url || '';
   const svLink = (s.latitude && s.longitude)
-    ? `https://www.google.com/maps?q=&layer=c&cbll=${s.latitude},${s.longitude}`
+    ? `https://www.google.com/maps/@${s.latitude},${s.longitude},3a,75y,0h,90t/data=!3m1!1e1`
     : '';
   const svLinkHtml = svLink
     ? `<a href="${svLink}" target="_blank">${esc(t.svLink)}</a>`
