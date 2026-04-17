@@ -449,6 +449,17 @@
 </div>
 
 <script>
+// ── HTML escaping (prevents XSS from JSON data) ───────
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── Mobile helpers ────────────────────────────────────
 function isMobile() { return window.innerWidth < 600; }
 
@@ -622,9 +633,9 @@ function buildCard(s) {
   const src = s.source || 'satellite';
   const verdict = s.human_verdict;
   const verdictHtml = s.source === 'ground_truth'
-    ? `<span class="tag high" style="text-transform:uppercase;">${t.groundTruthBadge}</span>`
+    ? `<span class="tag high" style="text-transform:uppercase;">${esc(t.groundTruthBadge)}</span>`
     : verdict && verdict !== 'pending' && verdict !== 'no_image'
-      ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${verdict}</span>`
+      ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${esc(verdict)}</span>`
       : '';
 
   // Pick best image — local file, or placeholder with Street View link
@@ -663,35 +674,35 @@ function buildCard(s) {
       <div class="card-body">
         <div class="card-tags">
           ${verdictHtml}
-          <span class="tag ${sev}">${sev.toUpperCase()}</span>
-          <span class="tag">${(s.waste_type || 'mixed').toUpperCase()}</span>
-          <span class="tag source">${src.toUpperCase()}</span>
-          ${s.nbi_label ? `<span class="tag nbi-${s.nbi_label.replace(' ','-')}">NBI ${s.nbi_label.toUpperCase()}</span>` : ''}
+          <span class="tag ${esc(sev)}">${esc(sev).toUpperCase()}</span>
+          <span class="tag">${esc(s.waste_type || 'mixed').toUpperCase()}</span>
+          <span class="tag source">${esc(src).toUpperCase()}</span>
+          ${s.nbi_label ? `<span class="tag nbi-${esc(s.nbi_label).replace(' ','-')}">NBI ${esc(s.nbi_label).toUpperCase()}</span>` : ''}
         </div>
-        ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${s.name}</div>` : ''}
-        ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">${t.reviewLabel}: ${s.review_notes}</div>` : ''}
-        <div class="card-desc">${s.description_es || '—'}</div>
+        ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${esc(s.name)}</div>` : ''}
+        ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">${esc(t.reviewLabel)}: ${esc(s.review_notes)}</div>` : ''}
+        <div class="card-desc">${esc(s.description_es) || '—'}</div>
         <div class="card-meta">
           <div class="meta-row">
             <div class="meta-label">${t.metaConf}</div>
-            <div class="meta-val">${confLabel}</div>
+            <div class="meta-val">${esc(confLabel)}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">${t.metaArea}</div>
-            <div class="meta-val">${areaLabel}</div>
+            <div class="meta-label">${esc(t.metaArea)}</div>
+            <div class="meta-val">${esc(areaLabel)}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">${t.metaNbi}</div>
-            <div class="meta-val">${s.nbi_pct != null ? s.nbi_pct + '%' : '—'}</div>
+            <div class="meta-label">${esc(t.metaNbi)}</div>
+            <div class="meta-val">${s.nbi_pct != null ? esc(String(s.nbi_pct)) + '%' : '—'}</div>
           </div>
           <div class="meta-row">
-            <div class="meta-label">${t.metaSource}</div>
-            <div class="meta-val">${src}</div>
+            <div class="meta-label">${esc(t.metaSource)}</div>
+            <div class="meta-val">${esc(src)}</div>
           </div>
         </div>
         ${historyHtml}
         <div class="card-footer">
-          <span class="coords">${s.latitude?.toFixed(4)}, ${s.longitude?.toFixed(4)}</span>
+          <span class="coords">${esc(s.latitude?.toFixed(4))}, ${esc(s.longitude?.toFixed(4))}</span>
           <a class="maps-link" href="${mapsUrl}" target="_blank">${t.mapsLink}</a>
         </div>
       </div>
