@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Review — Basura Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #111; color: #eee; }
+  header { padding: 16px 24px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 13px; color: #888; }
+  #controls { padding: 12px 24px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; gap: 8px; align-items: center; }
+  #file-input { display: none; }
+  label[for=file-input] { cursor: pointer; background: #2563eb; color: white; padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+  label[for=file-input]:hover { background: #1d4ed8; }
+  #file-name { font-size: 13px; color: #888; }
+  #api-key-row { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  #api-key-row label { font-size: 12px; color: #888; }
+  #api-key-input { background: #222; border: 1px solid #444; color: #eee; padding: 5px 10px; border-radius: 6px; font-size: 12px; width: 340px; }
+  #main { display: none; }
+  #progress-bar { position: sticky; top: 0; background: #1a1a1a; border-bottom: 1px solid #333; padding: 10px 24px; display: flex; align-items: center; gap: 12px; z-index: 10; }
+  #progress-bar .counters { font-size: 13px; color: #aaa; margin-left: auto; }
+  #progress-bar .dots { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #333; cursor: pointer; transition: transform 0.1s; }
+  .dot:hover { transform: scale(1.4); }
+  .dot.pending  { background: #555; }
+  .dot.approved { background: #22c55e; }
+  .dot.rejected { background: #ef4444; }
+  .dot.current  { outline: 2px solid #fff; outline-offset: 1px; }
+  #card-container { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #1a1a1a; border-radius: 12px; overflow: hidden; border: 1px solid #333; }
+  .images-row { display: grid; grid-template-columns: 1fr 1fr; }
+  .img-panel { position: relative; }
+  .img-panel img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #222; }
+  .img-panel .img-label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.65); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 5px 10px; color: #bbb; }
+  .img-panel .badge { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge.high   { background: #dc2626; color: white; }
+  .badge.medium { background: #d97706; color: white; }
+  .badge.low    { background: #059669; color: white; }
+  .sv-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; aspect-ratio: 1; background: #1a1a1a; color: #555; font-size: 13px; gap: 8px; }
+  .sv-placeholder a { color: #60a5fa; font-size: 12px; text-decoration: none; }
+  .sv-placeholder a:hover { text-decoration: underline; }
+  .card-body { padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .meta-item { background: #252525; border-radius: 8px; padding: 10px 12px; }
+  .meta-item .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 3px; }
+  .meta-item .value { font-size: 14px; font-weight: 600; }
+  .value.conf-high   { color: #22c55e; }
+  .value.conf-medium { color: #f59e0b; }
+  .value.conf-low    { color: #ef4444; }
+  .right-col { display: flex; flex-direction: column; gap: 10px; }
+  .description { background: #252525; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6; color: #bbb; flex: 1; overflow-y: auto; max-height: 140px; }
+  .history { font-size: 12px; color: #888; }
+  .history strong { color: #aaa; }
+  .history .years { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .year-pill { background: #333; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+  .actions { display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid #333; justify-content: space-between; align-items: center; }
+  .btn { padding: 8px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .btn-approve { background: #16a34a; color: white; }
+  .btn-approve:hover { background: #15803d; }
+  .btn-approve.active { background: #22c55e; box-shadow: 0 0 0 3px #22c55e44; }
+  .btn-reject  { background: #b91c1c; color: white; }
+  .btn-reject:hover  { background: #991b1b; }
+  .btn-reject.active  { background: #ef4444; box-shadow: 0 0 0 3px #ef444444; }
+  .btn-nav { background: #2a2a2a; color: #ccc; border: 1px solid #444; }
+  .btn-nav:hover { background: #333; }
+  .btn-nav:disabled { opacity: 0.3; cursor: default; }
+  .btn-export { background: #2563eb; color: white; }
+  .btn-export:hover { background: #1d4ed8; }
+  .maps-link { font-size: 12px; color: #60a5fa; text-decoration: none; }
+  .maps-link:hover { text-decoration: underline; }
+  .card-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .card-title-row h2 { font-size: 15px; font-weight: 600; color: #ccc; }
+  #export-panel { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  #export-panel pre { background: #0a0a0a; border: 1px solid #333; border-radius: 8px; padding: 16px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; }
+  #no-sites { padding: 60px 24px; text-align: center; color: #555; }
+  .hint { font-size: 12px; color: #555; padding: 8px 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Site Review — Basura Tracker</h1>
+  <span>San Salvador de Jujuy · ISEPCi / Fundación Puna</span>
+</header>
+
+<div id="controls">
+  <input type="file" id="file-input" accept=".json">
+  <label for="file-input">Load seed JSON</label>
+  <span id="file-name">No file loaded</span>
+  <div id="api-key-row">
+    <label for="api-key-input">Maps API key:</label>
+    <input type="text" id="api-key-input" placeholder="AIza..." value="">
+  </div>
+</div>
+<div class="hint">Keyboard: ← → to navigate · A = approve · R = reject</div>
+
+<div id="main">
+  <div id="progress-bar">
+    <div class="dots" id="dots"></div>
+    <div class="counters" id="counters"></div>
+  </div>
+  <div id="card-container"></div>
+  <div id="export-panel">
+    <h2 style="margin-bottom:12px;font-size:15px;">Approved sites (ready to publish)</h2>
+    <pre id="export-json"></pre>
+  </div>
+</div>
+
+<script>
+let sites = [];
+let decisions = [];
+let current = 0;
+
+// Pre-fill API key from URL param or localStorage
+const params = new URLSearchParams(location.search);
+const savedKey = params.get('key') || localStorage.getItem('gmaps_key') || 'AIzaSyDC4bUql8217qpF1t6_hC-9apC8nVa1GH8';
+document.getElementById('api-key-input').value = savedKey;
+document.getElementById('api-key-input').addEventListener('change', e => {
+  localStorage.setItem('gmaps_key', e.target.value);
+});
+
+function getApiKey() {
+  return document.getElementById('api-key-input').value.trim();
+}
+
+function streetViewUrl(lat, lng) {
+  const key = getApiKey();
+  if (!key) return null;
+  return `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${lat},${lng}&fov=90&pitch=10&key=${key}`;
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('file-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      sites = JSON.parse(ev.target.result);
+      decisions = sites.map(() => null);
+      current = 0;
+      document.getElementById('main').style.display = 'block';
+      renderAll();
+    } catch(err) {
+      alert('Error reading JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+function renderAll() {
+  renderDots();
+  renderCounters();
+  if (sites.length === 0) {
+    document.getElementById('card-container').innerHTML = '<div id="no-sites">No sites in this file.</div>';
+    return;
+  }
+  renderCard(current);
+}
+
+function renderDots() {
+  const container = document.getElementById('dots');
+  container.innerHTML = sites.map((_, i) => {
+    const state = decisions[i] === true ? 'approved' : decisions[i] === false ? 'rejected' : 'pending';
+    const curr  = i === current ? 'current' : '';
+    return `<div class="dot ${state} ${curr}" onclick="goTo(${i})" title="Site ${i+1}"></div>`;
+  }).join('');
+}
+
+function renderCounters() {
+  const approved = decisions.filter(d => d === true).length;
+  const rejected = decisions.filter(d => d === false).length;
+  const pending  = decisions.filter(d => d === null).length;
+  document.getElementById('counters').textContent =
+    `✅ ${approved} approved  ❌ ${rejected} rejected  ⏳ ${pending} pending`;
+}
+
+function renderCard(idx) {
+  const s = sites[idx];
+  const dec = decisions[idx];
+  const confClass = s.confidence >= 0.8 ? 'conf-high' : s.confidence >= 0.65 ? 'conf-medium' : 'conf-low';
+  const mapsUrl = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
+  const svUrl = streetViewUrl(s.latitude, s.longitude);
+
+  const tileUrl = s.satellite_tile_url || '';
+
+  const yearPills = (s.yearly_presence || [])
+    .map(y => `<span class="year-pill">${y}</span>`).join('');
+
+  const areaHa = s.estimated_area_m2 ? (s.estimated_area_m2 / 10000).toFixed(2) : '?';
+  const areaLabel = s.estimated_area_m2 >= 10000
+    ? `${areaHa} ha (${s.estimated_area_m2.toLocaleString()} m²)`
+    : `${s.estimated_area_m2?.toLocaleString() ?? '?'} m²`;
+
+  // If this is a streetview-source record, show the saved image directly
+  const svForward = s.sv_path_forward || '';
+  const svRight   = s.sv_path_right   || '';
+  let svPanel;
+  if (svForward) {
+    svPanel = `<img src="${svForward}" onerror="this.style.background='#2a2a2a'">`;
+  } else if (svUrl) {
+    svPanel = `<img src="${svUrl}" onerror="this.parentElement.innerHTML='<div class=\\'sv-placeholder\\'><span>No Street View at this location</span><a href=\\'${mapsUrl}\\' target=\\'_blank\\'>Open in Google Maps ↗</a></div>'">`;
+  } else {
+    svPanel = `<div class="sv-placeholder"><span>Enter Maps API key above to load Street View</span><a href="${mapsUrl}" target="_blank">Open in Google Maps ↗</a></div>`;
+  }
+
+  document.getElementById('card-container').innerHTML = `
+    <div class="card">
+      <div class="images-row">
+        <div class="img-panel">
+          <img src="${tileUrl}" onerror="this.style.background='#2a2a2a'">
+          <span class="badge ${s.severity}">${s.severity?.toUpperCase() ?? ''}</span>
+          <div class="img-label">Satellite (Sentinel-2 / Google Maps)</div>
+        </div>
+        <div class="img-panel">
+          ${svPanel}
+          <div class="img-label">Street View (ground level)</div>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <div>
+          <div class="card-title-row">
+            <h2>Site ${idx + 1} of ${sites.length}</h2>
+            <a class="maps-link" href="${mapsUrl}" target="_blank">Open in Google Maps ↗</a>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="label">AI Confidence</div>
+              <div class="value ${confClass}">${Math.round((s.confidence || 0) * 100)}%</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Severity</div>
+              <div class="value">${s.severity ?? '—'}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Estimated area</div>
+              <div class="value">${areaLabel}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Waste type</div>
+              <div class="value">${s.waste_type ?? '—'}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Coordinates</div>
+              <div class="value" style="font-size:12px;">${s.latitude?.toFixed(5)}, ${s.longitude?.toFixed(5)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Trend</div>
+              <div class="value">${s.confidence_trend ?? '—'}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-col">
+          <div class="description"><strong style="color:#aaa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">AI description</strong><br><br>${s.description_es ?? '(no description)'}</div>
+          <div class="history">
+            <strong>Landsat history:</strong>
+            ${s.first_detected_year ? `First seen: ${s.first_detected_year}` : 'No historical data'}
+            ${yearPills ? `<div class="years">${yearPills}</div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-approve ${dec === true ? 'active' : ''}" onclick="decide(true)">✅ Approve</button>
+          <button class="btn btn-reject  ${dec === false ? 'active' : ''}" onclick="decide(false)">❌ Reject</button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-nav" onclick="goTo(${idx-1})" ${idx === 0 ? 'disabled' : ''}>← Prev</button>
+          <button class="btn btn-nav" onclick="goTo(${idx+1})" ${idx === sites.length-1 ? 'disabled' : ''}>Next →</button>
+          <button class="btn btn-export" onclick="showExport()">Export approved</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function decide(approved) {
+  decisions[current] = decisions[current] === approved ? null : approved;
+  renderDots();
+  renderCounters();
+  renderCard(current);
+  document.getElementById('export-panel').style.display = 'none';
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= sites.length) return;
+  current = idx;
+  renderDots();
+  renderCard(current);
+  document.getElementById('export-panel').style.display = 'none';
+}
+
+function showExport() {
+  const approved = sites.filter((_, i) => decisions[i] === true);
+  document.getElementById('export-json').textContent = JSON.stringify(approved, null, 2);
+  document.getElementById('export-panel').style.display = 'block';
+  document.getElementById('export-panel').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.addEventListener('keydown', e => {
+  if (sites.length === 0) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(current + 1);
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goTo(current - 1);
+  if (e.key === 'a' || e.key === 'A') decide(true);
+  if (e.key === 'r' || e.key === 'R') decide(false);
+});
+</script>
+</body>
+</html>

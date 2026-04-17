@@ -1,0 +1,25 @@
+# Secrets
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Large local data (images + intermediate files)
+data/sv_candidates/
+data/nbi_cache/
+data/candidates/
+data/confirmed/
+
+# Big intermediate outputs (not needed for the map)
+data/output/resume_candidates.json
+data/output/review_queue.json
+data/output/seed_20260416_002008.*
+data/output/seed_20260416_005939.*
+data/output/sv_20260416_192626.csv
+
+# OS
+.DS_Store

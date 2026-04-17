@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lupa — Jujuy, Argentina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background: #fff;
+    color: #111;
+    height: 100dvh;
+    height: 100vh; /* fallback */
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  header {
+    border-bottom: 2px solid #111;
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  header .sub {
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+  .load-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    background: #111;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .load-btn:hover { background: #333; }
+  #file-input { display: none; }
+
+  /* ── Stats bar ──────────────────────────────────── */
+  #stats {
+    border-bottom: 1px solid #ddd;
+    padding: 10px 24px;
+    font-size: 13px;
+    color: #666;
+    letter-spacing: 0.05em;
+    display: flex;
+    gap: 24px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #stats::-webkit-scrollbar { display: none; }
+  #stats span { white-space: nowrap; }
+  #stats span b { color: #111; }
+
+  /* ── Map ────────────────────────────────────────── */
+  #map {
+    flex: 1;
+    position: relative;
+    filter: grayscale(100%) contrast(1.1);
+  }
+
+  /* ── Popup card ─────────────────────────────────── */
+  .leaflet-popup-content-wrapper {
+    border-radius: 0 !important;
+    border: 2px solid #111 !important;
+    box-shadow: 4px 4px 0 #111 !important;
+    padding: 0 !important;
+    width: min(400px, calc(100vw - 24px)) !important;
+    font-family: 'Space Mono', monospace !important;
+  }
+  .leaflet-popup-content {
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  .leaflet-popup-tip-container { display: none; }
+  .leaflet-popup-close-button {
+    font-family: 'Space Mono', monospace !important;
+    font-size: 16px !important;
+    color: #111 !important;
+    top: 8px !important;
+    right: 10px !important;
+    padding: 8px !important;
+  }
+
+  .card { width: 100%; }
+
+  .card-img {
+    width: 100%;
+    height: 210px;
+    object-fit: cover;
+    display: block;
+    border-bottom: 2px solid #111;
+    background: #eee;
+  }
+
+  .card-img-placeholder {
+    width: 100%;
+    height: 210px;
+    background: #f0f0f0;
+    border-bottom: 2px solid #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #999;
+    letter-spacing: 0.05em;
+  }
+
+  .card-body { padding: 16px 18px; }
+
+  .card-tags {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border: 1px solid #111;
+  }
+  .tag.high   { background: #111; color: #fff; }
+  .tag.medium { background: #fff; color: #111; }
+  .tag.low    { background: #fff; color: #999; border-color: #999; }
+  .tag.source { border-color: #999; color: #666; }
+  .tag.nbi-very-high { background: #111; color: #fff; border-color: #111; }
+  .tag.nbi-high      { background: #fff; color: #111; }
+  .tag.nbi-medium    { background: #fff; color: #666; border-color: #999; }
+  .tag.nbi-low       { background: #fff; color: #bbb; border-color: #ddd; }
+
+  .card-desc {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #333;
+    margin-bottom: 14px;
+    font-style: italic;
+  }
+
+  .card-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    border-top: 1px solid #ddd;
+    padding-top: 12px;
+    margin-bottom: 12px;
+  }
+  .meta-row { }
+  .meta-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #999;
+  }
+  .meta-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .card-history {
+    font-size: 11px;
+    color: #666;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    margin-bottom: 12px;
+    line-height: 1.8;
+  }
+  .year-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+  }
+  .yr {
+    font-size: 10px;
+    border: 1px solid #ccc;
+    padding: 2px 5px;
+    color: #666;
+  }
+
+  .card-footer {
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .coords {
+    font-size: 11px;
+    color: #999;
+    letter-spacing: 0.03em;
+  }
+  .maps-link {
+    font-size: 11px;
+    color: #111;
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #111;
+  }
+  .maps-link:hover { color: #555; border-color: #555; }
+
+  /* ── Panel toggle shared ────────────────────────── */
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .panel-toggle {
+    background: none;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .panel-body { display: block; }
+  .panel-collapsed .panel-body { display: none; }
+
+  /* ── Legend ─────────────────────────────────────── */
+  #legend {
+    position: absolute;
+    bottom: 28px;
+    left: 12px;
+    z-index: 1000;
+    background: #fff;
+    border: 2px solid #111;
+    padding: 12px 16px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    line-height: 2;
+    box-shadow: 3px 3px 0 #111;
+  }
+  #legend .leg-title {
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  #legend.panel-collapsed .leg-title { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+  #legend .leg-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #444;
+  }
+  #legend .leg-pin {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #111;
+    flex-shrink: 0;
+  }
+
+  /* ── Custom pins ────────────────────────────────── */
+  .pin {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #111;
+    background: #111;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .pin:hover { transform: scale(1.4); }
+  .pin.medium { background: #fff; }
+  .pin.low    { background: #fff; border-color: #999; }
+  .pin.sv     { border-style: dashed; }
+  .pin.dual   { background: #111; border: 2px solid #111; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #111; }
+
+  /* Human-reviewed verdict pins */
+  .pin.human-confirmed  { width:16px; height:16px; background:#111; border:3px solid #111; box-shadow:0 0 0 2px #fff,0 0 0 4px #111; }
+  .pin.human-borderline { width:13px; height:13px; background:#fff; border:2px dashed #111; }
+  .pin.human-rejected   { width:8px;  height:8px;  background:#fff; border:1px solid #ccc; opacity:0.4; }
+  .pin.human-pending    { background: #fff; border-color: #ccc; }
+
+  /* Ground truth pins (Mariano's documented sites) */
+  .pin.ground-truth {
+    width: 18px; height: 18px;
+    background: #fff;
+    border: 3px solid #111;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #111;
+    position: relative;
+  }
+  .pin.ground-truth::after {
+    content: '★';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    line-height: 1;
+    color: #111;
+  }
+
+  /* ── Filter bar ─────────────────────────────────── */
+  #filter-bar {
+    position: absolute;
+    bottom: 28px;
+    right: 12px;
+    z-index: 1000;
+    background: #fff;
+    border: 2px solid #111;
+    padding: 10px 14px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    box-shadow: 3px 3px 0 #111;
+  }
+  #filter-bar .fb-title {
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  #filter-bar.panel-collapsed .fb-title { margin-bottom: 0; border-bottom: none; padding-bottom: 0; }
+  #filter-bar label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    color: #444;
+    min-height: 28px; /* bigger touch target */
+  }
+  #filter-bar input[type=checkbox] { cursor: pointer; width: 16px; height: 16px; }
+
+  /* ── Mobile ─────────────────────────────────────── */
+  @media (max-width: 600px) {
+    header {
+      padding: 10px 14px;
+    }
+    header h1 { font-size: 16px; letter-spacing: 0.05em; }
+    header .sub { font-size: 11px; }
+    .load-btn { font-size: 11px; padding: 8px 14px; }
+
+    #stats {
+      padding: 8px 14px;
+      font-size: 11px;
+      gap: 16px;
+    }
+    #stats .stat-attr { display: none; }
+
+    .card-img, .card-img-placeholder { height: 160px; }
+    .card-body { padding: 12px 14px; }
+
+    #legend { bottom: 16px; left: 8px; padding: 8px 12px; }
+    #filter-bar { bottom: 16px; right: 8px; padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Lupa — Jujuy, Argentina</h1>
+    <div class="sub">Satellite + Street View waste detection</div>
+  </div>
+  <div style="display:flex;gap:20px;align-items:center;">
+    <input type="file" id="file-input" accept=".json" multiple>
+    <label for="file-input" class="load-btn">Load data</label>
+  </div>
+</header>
+
+<div id="stats">
+  <span><b id="stat-total">0</b> sites</span>
+  <span><b id="stat-confirmed">0</b> human confirmed</span>
+  <span><b id="stat-high">0</b> high severity</span>
+  <span><b id="stat-sat">0</b> satellite</span>
+  <span><b id="stat-sv">0</b> street view</span>
+  <span>avg NBI <b id="stat-nbi">—</b></span>
+  <span><b id="stat-dual">0</b> dual confirmed</span>
+  <span><b id="stat-gt">0</b> ground truth</span>
+  <span class="stat-attr" style="margin-left:auto;font-size:11px;color:#bbb;">Waste sites: Apr 2026 · Street View: Google imagery (dates vary) · NBI: INDEC 2010 census · Satellite history: Landsat 1986–2026</span>
+</div>
+
+<div id="map"></div>
+
+<div id="legend">
+  <div class="panel-header" onclick="togglePanel('legend')">
+    <div class="leg-title">Legend</div>
+    <button class="panel-toggle" id="legend-toggle">▼</button>
+  </div>
+  <div class="panel-body">
+    <div class="leg-row"><div class="leg-pin" style="width:16px;height:16px;background:#111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;border:3px solid #111;"></div> Human confirmed ★</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#fff;border-style:dashed;border-color:#111;"></div> Borderline (human)</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#111;"></div> High severity (AI)</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#fff;"></div> Medium severity (AI)</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#fff;border-color:#999;"></div> Low severity (AI)</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#111;border-style:dashed;"></div> Street View source</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;"></div> Dual confirmed</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#fff;border:3px solid #111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;font-size:8px;display:flex;align-items:center;justify-content:center;">★</div> Mariano (ground truth)</div>
+  </div>
+</div>
+
+<div id="filter-bar">
+  <div class="panel-header" onclick="togglePanel('filter-bar')">
+    <div class="fb-title">Filter</div>
+    <button class="panel-toggle" id="filter-bar-toggle">▼</button>
+  </div>
+  <div class="panel-body">
+    <label><input type="checkbox" id="f-confirmed" checked> Human confirmed</label>
+    <label><input type="checkbox" id="f-borderline" checked> Borderline</label>
+    <label><input type="checkbox" id="f-pending" checked> Pending review</label>
+    <label><input type="checkbox" id="f-rejected"> Rejected</label>
+    <label><input type="checkbox" id="f-satellite" checked> Satellite sites</label>
+    <label><input type="checkbox" id="f-ground-truth" checked> Mariano (ground truth)</label>
+  </div>
+</div>
+
+<script>
+// ── Mobile helpers ────────────────────────────────────
+function isMobile() { return window.innerWidth < 600; }
+
+function togglePanel(id) {
+  const el = document.getElementById(id);
+  const btn = document.getElementById(id + '-toggle');
+  el.classList.toggle('panel-collapsed');
+  btn.textContent = el.classList.contains('panel-collapsed') ? '▶' : '▼';
+}
+
+// Auto-collapse panels on mobile
+if (isMobile()) {
+  ['legend', 'filter-bar'].forEach(id => {
+    document.getElementById(id).classList.add('panel-collapsed');
+    document.getElementById(id + '-toggle').textContent = '▶';
+  });
+}
+
+// ── Map init ─────────────────────────────────────────
+const map = L.map('map', {
+  center: [-23.8, -65.7],
+  zoom: 9,
+  zoomControl: true,
+});
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd',
+  maxZoom: 20,
+}).addTo(map);
+
+// ── State ────────────────────────────────────────────
+let allSites = [];
+let markers = [];
+
+// ── Auto-load default data files ─────────────────────
+const DEFAULT_FILES = [
+  'data/output/reviewed_sites.json',
+  'data/output/seed_20260416_014134.json',
+  'data/output/mariano_sites.json',
+];
+
+async function autoLoad() {
+  let anyLoaded = false;
+  for (const url of DEFAULT_FILES) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const sites = await res.json();
+      sites.forEach(s => {
+        if (!allSites.find(x => x.latitude === s.latitude && x.longitude === s.longitude)) {
+          allSites.push(s);
+        }
+      });
+      anyLoaded = true;
+    } catch(e) { /* local file:// or missing — skip */ }
+  }
+  if (anyLoaded) renderAll();
+}
+autoLoad();
+
+// ── Manual file load (local use) ─────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const files = Array.from(e.target.files);
+  allSites = []; // reset on manual load
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const sites = JSON.parse(ev.target.result);
+        sites.forEach(s => {
+          if (!allSites.find(x => x.latitude === s.latitude && x.longitude === s.longitude)) {
+            allSites.push(s);
+          }
+        });
+        loaded++;
+        if (loaded === files.length) renderAll();
+      } catch(err) {
+        alert('Error reading ' + file.name + ': ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  });
+});
+
+// Re-render when filters change
+['f-confirmed','f-borderline','f-pending','f-rejected','f-satellite','f-ground-truth'].forEach(id => {
+  document.getElementById(id).addEventListener('change', renderAll);
+});
+
+function getFilters() {
+  return {
+    confirmed:    document.getElementById('f-confirmed').checked,
+    borderline:   document.getElementById('f-borderline').checked,
+    pending:      document.getElementById('f-pending').checked,
+    rejected:     document.getElementById('f-rejected').checked,
+    satellite:    document.getElementById('f-satellite').checked,
+    groundTruth:  document.getElementById('f-ground-truth').checked,
+  };
+}
+
+function sitePassesFilter(s, f) {
+  const verdict = s.human_verdict;
+  if (s.source === 'ground_truth') return f.groundTruth;
+  if (s.source === 'satellite')    return f.satellite;
+  if (verdict === 'confirmed')     return f.confirmed;
+  if (verdict === 'borderline')    return f.borderline;
+  if (verdict === 'rejected')      return f.rejected;
+  if (verdict === 'no_image')      return false;
+  return f.pending;
+}
+
+function renderAll() {
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  const f = getFilters();
+  const visible = allSites.filter(s => s.latitude && s.longitude && sitePassesFilter(s, f));
+
+  visible.forEach(s => {
+    const verdict = s.human_verdict;
+    const sev = s.severity || 'low';
+    const isSV = s.source === 'streetview';
+    const isDual = s.dual_confirmed === true;
+
+    // Pin class: ground truth → human verdict → AI severity
+    let pinClass;
+    if (s.source === 'ground_truth') pinClass = 'ground-truth';
+    else if (verdict === 'confirmed')     pinClass = 'human-confirmed';
+    else if (verdict === 'borderline')    pinClass = 'human-borderline';
+    else if (verdict === 'rejected')      pinClass = 'human-rejected';
+    else if (isDual)  pinClass = 'dual';
+    else pinClass = `${sev} ${isSV ? 'sv' : ''}`;
+
+    const size = s.source === 'ground_truth' ? 18 : verdict === 'confirmed' ? 16 : verdict === 'rejected' ? 8 : 12;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="pin ${pinClass}"></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2],
+      popupAnchor: [0, -10],
+    });
+
+    const marker = L.marker([s.latitude, s.longitude], { icon });
+    const popupW = isMobile() ? Math.min(window.innerWidth - 24, 360) : 400;
+    marker.bindPopup(buildCard(s), { maxWidth: popupW, minWidth: popupW });
+    marker.addTo(map);
+    markers.push(marker);
+  });
+
+  updateStats();
+
+  if (allSites.length > 0 && markers.length > 0) {
+    const bounds = L.latLngBounds(visible.map(s => [s.latitude, s.longitude]));
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }
+}
+
+function buildCard(s) {
+  const mapsUrl = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
+  const sev = s.severity || 'unknown';
+  const src = s.source || 'satellite';
+  const verdict = s.human_verdict;
+  const verdictHtml = s.source === 'ground_truth'
+    ? `<span class="tag high" style="text-transform:uppercase;">★ GROUND TRUTH</span>`
+    : verdict && verdict !== 'pending' && verdict !== 'no_image'
+      ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${verdict}</span>`
+      : '';
+
+  // Pick best image
+  const imgUrl = s.sv_path_forward || s.satellite_tile_url || '';
+
+  const imgHtml = imgUrl
+    ? `<img class="card-img" src="${imgUrl}" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>NO IMAGE</div>'">`
+    : `<div class="card-img-placeholder">NO IMAGE</div>`;
+
+  const areaLabel = s.estimated_area_m2
+    ? s.estimated_area_m2 >= 10000
+      ? `${(s.estimated_area_m2/10000).toFixed(1)} ha`
+      : `${s.estimated_area_m2.toLocaleString()} m²`
+    : '—';
+
+  const confLabel = s.confidence ? `${Math.round(s.confidence * 100)}%` : '—';
+
+  const historyHtml = s.first_detected_year
+    ? `<div class="card-history">
+        First detected: <b>${s.first_detected_year}</b>
+        ${s.yearly_presence?.length > 0
+          ? `<div class="year-list">${s.yearly_presence.map(y => `<span class="yr">${y}</span>`).join('')}</div>`
+          : ''}
+       </div>`
+    : '';
+
+  return `
+    <div class="card">
+      ${imgHtml}
+      <div class="card-body">
+        <div class="card-tags">
+          ${verdictHtml}
+          <span class="tag ${sev}">${sev.toUpperCase()}</span>
+          <span class="tag">${(s.waste_type || 'mixed').toUpperCase()}</span>
+          <span class="tag source">${src.toUpperCase()}</span>
+          ${s.nbi_label ? `<span class="tag nbi-${s.nbi_label.replace(' ','-')}">NBI ${s.nbi_label.toUpperCase()}</span>` : ''}
+        </div>
+        ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${s.name}</div>` : ''}
+        ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">Review: ${s.review_notes}</div>` : ''}
+        <div class="card-desc">${s.description_es || '—'}</div>
+        <div class="card-meta">
+          <div class="meta-row">
+            <div class="meta-label">AI confidence</div>
+            <div class="meta-val">${confLabel}</div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">Area</div>
+            <div class="meta-val">${areaLabel}</div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">NBI (poverty)</div>
+            <div class="meta-val">${s.nbi_pct != null ? s.nbi_pct + '%' : '—'}</div>
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">Source</div>
+            <div class="meta-val">${src}</div>
+          </div>
+        </div>
+        ${historyHtml}
+        <div class="card-footer">
+          <span class="coords">${s.latitude?.toFixed(4)}, ${s.longitude?.toFixed(4)}</span>
+          <a class="maps-link" href="${mapsUrl}" target="_blank">Google Maps →</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateStats() {
+  const f = getFilters();
+  const visible = allSites.filter(s => sitePassesFilter(s, f));
+  document.getElementById('stat-total').textContent = visible.length;
+  document.getElementById('stat-confirmed').textContent = allSites.filter(s => s.human_verdict === 'confirmed').length;
+  document.getElementById('stat-high').textContent = visible.filter(s => s.severity === 'high').length;
+  document.getElementById('stat-sat').textContent = visible.filter(s => s.source === 'satellite').length;
+  document.getElementById('stat-sv').textContent = visible.filter(s => s.source === 'streetview').length;
+  const withNbi = visible.filter(s => s.nbi_pct != null);
+  if (withNbi.length > 0) {
+    const avg = withNbi.reduce((sum, s) => sum + s.nbi_pct, 0) / withNbi.length;
+    document.getElementById('stat-nbi').textContent = avg.toFixed(1) + '%';
+  }
+  document.getElementById('stat-dual').textContent = visible.filter(s => s.dual_confirmed).length;
+  document.getElementById('stat-gt').textContent = allSites.filter(s => s.source === 'ground_truth').length;
+}
+</script>
+</body>
+</html>

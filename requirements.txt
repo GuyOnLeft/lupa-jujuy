@@ -1,0 +1,9 @@
+earthengine-api==1.7.22
+anthropic==0.51.0
+requests==2.32.3
+shapely==2.0.6
+geojson==3.1.0
+python-dotenv==1.0.1
+pytest==8.3.5
+pytest-mock==3.14.0
+responses==0.25.3

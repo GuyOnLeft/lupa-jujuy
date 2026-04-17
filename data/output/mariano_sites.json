@@ -1,0 +1,47 @@
+[
+  {
+    "latitude": -24.2336867,
+    "longitude": -65.2573187,
+    "name": "BAJO EXODO",
+    "source": "ground_truth",
+    "severity": "high",
+    "description_es": "Microbasural documentado por Mariano — BAJO EXODO (Alto Comedero)",
+    "confidence": 1.0
+  },
+  {
+    "latitude": -24.2410741,
+    "longitude": -65.2498564,
+    "name": "330 VIVIENDAS",
+    "source": "ground_truth",
+    "severity": "high",
+    "description_es": "Microbasural documentado por Mariano — 330 viviendas (Alto Comedero)",
+    "confidence": 1.0
+  },
+  {
+    "latitude": -24.2606619,
+    "longitude": -65.2360902,
+    "name": "SUM 30 HECTAREAS",
+    "source": "ground_truth",
+    "severity": "high",
+    "description_es": "Microbasural documentado por Mariano — SUM 30 hectáreas (San Pedrito). Zona no cubierta por satélite ni Street View.",
+    "confidence": 1.0
+  },
+  {
+    "latitude": -24.1607039,
+    "longitude": -65.3696811,
+    "name": "LARREA Y TRIUNVIRATO",
+    "source": "ground_truth",
+    "severity": "high",
+    "description_es": "Microbasural documentado por Mariano — Larrea y Triunvirato. Zona no cubierta por satélite ni Street View.",
+    "confidence": 1.0
+  },
+  {
+    "latitude": -24.1944419,
+    "longitude": -65.2702146,
+    "name": "CALLE DE DEMISA",
+    "source": "ground_truth",
+    "severity": "high",
+    "description_es": "Microbasural documentado por Mariano — Calle de Demisa (Coronel Arias).",
+    "confidence": 1.0
+  }
+]
