@@ -484,6 +484,12 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 let allSites = [];
 let markers = [];
 
+// ── Hide load button on GitHub Pages ─────────────────
+if (window.location.hostname.includes('github.io')) {
+  document.getElementById('load-label').style.display = 'none';
+  document.getElementById('lang-btn').style.marginLeft = '0';
+}
+
 // ── Auto-load default data files ─────────────────────
 const DEFAULT_FILES = [
   'data/output/reviewed_sites.json',
