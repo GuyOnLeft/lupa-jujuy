@@ -26,3 +26,6 @@ data/output/sv_20260416_192626.csv
 
 # Git worktrees
 .worktrees/
+
+# Node
+cloudflare-worker/node_modules/

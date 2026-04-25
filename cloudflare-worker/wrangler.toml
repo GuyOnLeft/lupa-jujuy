@@ -1,0 +1,20 @@
+name = "lupa-submission"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "739d2551a4be493cb7603765c8b22963"
+preview_id = "e05a6e43b034496d9bdb60d1fadd2b36"
+
+# Environment variables — set secrets with: wrangler secret put <NAME>
+# TWILIO_ACCOUNT_SID
+# TWILIO_AUTH_TOKEN
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+# ADMIN_PASSWORD
+# GITHUB_TOKEN
+# GITHUB_REPO = "GuyOnLeft/lupa-jujuy"
+
+[vars]
+GITHUB_REPO = "GuyOnLeft/lupa-jujuy"
