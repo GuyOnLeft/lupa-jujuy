@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lupa Admin</title>
+  <style>
+    :root { --bg: #0A0908; --ink: #D8D5CD; --dim: #6B6760; --amber: #F0B500; --green: #3DD68C; --red: #E84040; --border: #1E1C1A; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--ink); font-family: 'IBM Plex Mono', monospace; padding: 1.5rem; }
+    h1 { color: var(--amber); font-size: 1rem; letter-spacing: 0.1em; margin-bottom: 1.5rem; }
+    #login { max-width: 360px; }
+    #login input { width: 100%; padding: 0.6rem; background: #111; border: 1px solid var(--border); color: var(--ink); border-radius: 4px; margin-bottom: 0.75rem; font-family: inherit; }
+    #login button { padding: 0.6rem 1.2rem; background: var(--amber); color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold; }
+    .card { display: flex; gap: 1rem; align-items: flex-start; padding: 0.75rem; background: #111; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; }
+    .card img { width: 100px; height: 75px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+    .card-meta { flex: 1; font-size: 12px; }
+    .card-meta .coords { color: var(--ink); margin-bottom: 4px; }
+    .card-meta .date { color: var(--dim); }
+    .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    .btn-approve { background: #1e3a2a; color: var(--green); border: 1px solid var(--green); border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
+    .btn-reject  { background: #3a1a1a; color: var(--red);   border: 1px solid var(--red);   border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
+    .btn-approve:disabled, .btn-reject:disabled { opacity: 0.4; cursor: default; }
+    #status { color: var(--dim); font-size: 12px; margin-bottom: 1rem; }
+    #queue { display: none; }
+    a { color: var(--amber); }
+  </style>
+</head>
+<body>
+  <h1>LUPA ADMIN ── Moderación de reportes</h1>
+
+  <div id="login">
+    <input type="password" id="pw-input" placeholder="Contraseña">
+    <button id="pw-btn">Entrar</button>
+  </div>
+
+  <div id="queue">
+    <div id="status">Cargando...</div>
+    <div id="cards"></div>
+  </div>
+
+  <script>
+    const WORKER_URL = 'REPLACE_WITH_WORKER_URL'; // e.g. https://lupa-submission.xxx.workers.dev
+
+    let token = '';
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    document.getElementById('pw-btn').addEventListener('click', async () => {
+      token = document.getElementById('pw-input').value.trim();
+      if (!token) return;
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('queue').style.display = 'block';
+      await loadPending();
+    });
+
+    async function loadPending() {
+      const status = document.getElementById('status');
+      const cards  = document.getElementById('cards');
+      status.textContent = 'Cargando...';
+      cards.innerHTML = '';
+
+      const res = await fetch(`${WORKER_URL}/admin/pending`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (res.status === 401) {
+        status.textContent = 'Contraseña incorrecta.';
+        return;
+      }
+      if (!res.ok) {
+        status.textContent = `Error ${res.status}`;
+        return;
+      }
+
+      const rows = await res.json();
+      status.textContent = rows.length === 0 ? 'No hay reportes pendientes.' : `${rows.length} reporte(s) pendiente(s)`;
+
+      rows.forEach(row => {
+        const date = new Date(row.submitted_at).toLocaleString('es-AR');
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <a href="${esc(row.photo_url)}" target="_blank">
+            <img src="${esc(row.photo_url)}" alt="foto reporte">
+          </a>
+          <div class="card-meta">
+            <div class="coords">${esc(row.lat.toFixed(5))}, ${esc(row.lng.toFixed(5))}</div>
+            <div class="date">${esc(date)}</div>
+          </div>
+          <div class="actions">
+            <button class="btn-approve" data-id="${esc(row.id)}">✓ Aprobar</button>
+            <button class="btn-reject"  data-id="${esc(row.id)}">✗ Rechazar</button>
+          </div>
+        `;
+        cards.appendChild(card);
+      });
+
+      cards.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', () => doAction(btn.dataset.id, 'approve', btn));
+      });
+      cards.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.addEventListener('click', () => doAction(btn.dataset.id, 'reject', btn));
+      });
+    }
+
+    async function doAction(id, action, btn) {
+      btn.disabled = true;
+      btn.closest('.card').querySelectorAll('button').forEach(b => b.disabled = true);
+      const res = await fetch(`${WORKER_URL}/admin/${action}/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        btn.closest('.card').style.opacity = '0.3';
+      } else {
+        alert(`Error ${res.status}`);
+        btn.closest('.card').querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    }
+  </script>
+</body>
+</html>
