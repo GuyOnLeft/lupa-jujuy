@@ -341,6 +341,12 @@
     line-height: 1;
     color: #111;
   }
+  .pin.community {
+    background: #F0B500;
+    border: 2px solid #fff;
+    border-radius: 3px;
+    transform: rotate(45deg);
+  }
 
   /* ── Filter bar ─────────────────────────────────── */
   #filter-bar {
@@ -458,6 +464,7 @@
     <label><input type="checkbox" id="f-dual" checked> Dual confirmed</label>
     <label><input type="checkbox" id="f-satellite" checked> Satellite sites</label>
     <label><input type="checkbox" id="f-ground-truth" checked> Mariano (ground truth)</label>
+    <label><input type="checkbox" id="f-community" checked> Reportes comunidad</label>
   </div>
 </div>
 
@@ -521,6 +528,7 @@ if (window.location.hostname.includes('github.io')) {
 const DEFAULT_FILES = [
   'data/output/enriched_sites.json',
   'data/output/mariano_sites.json',
+  'data/output/approved_reports.json',
 ];
 
 async function autoLoad() {
@@ -568,7 +576,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 // Re-render when filters change
-['f-confirmed','f-borderline','f-pending','f-rejected','f-dual','f-satellite','f-ground-truth'].forEach(id => {
+['f-confirmed','f-borderline','f-pending','f-rejected','f-dual','f-satellite','f-ground-truth','f-community'].forEach(id => {
   document.getElementById(id).addEventListener('change', renderAll);
 });
 
@@ -581,10 +589,12 @@ function getFilters() {
     dual:         document.getElementById('f-dual').checked,
     satellite:    document.getElementById('f-satellite').checked,
     groundTruth:  document.getElementById('f-ground-truth').checked,
+    community:    document.getElementById('f-community').checked,
   };
 }
 
 function sitePassesFilter(s, f) {
+  if (s.source === 'community')    return f.community;
   const verdict = s.human_verdict;
   if (s.source === 'ground_truth') return f.groundTruth;
   if (s.source === 'satellite')    return f.satellite;
@@ -604,6 +614,21 @@ function renderAll() {
   const visible = allSites.filter(s => s.latitude && s.longitude && sitePassesFilter(s, f));
 
   visible.forEach(s => {
+    if (s.source === 'community') {
+      const size = 12;
+      const icon = L.divIcon({
+        className: '',
+        html: `<div class="pin community"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2],
+        popupAnchor: [0, -10],
+      });
+      const marker = L.marker([s.latitude, s.longitude], { icon });
+      marker.bindPopup(buildCommunityCard(s), { maxWidth: 300 });
+      marker.addTo(map);
+      markers.push(marker);
+      return; // skip existing pin logic
+    }
     const verdict = s.human_verdict;
     const sev = s.severity || 'low';
     const isSV = s.source === 'streetview';
@@ -721,6 +746,27 @@ function buildCard(s) {
         <div class="card-footer">
           <span class="coords">${esc(s.latitude?.toFixed(4))}, ${esc(s.longitude?.toFixed(4))}</span>
           <a class="maps-link" href="${mapsUrl}" target="_blank">${t.mapsLink}</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildCommunityCard(s) {
+  const date = new Date(s.submitted_at).toLocaleDateString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+  const mapsUrl = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
+  return `
+    <div class="card">
+      <img class="card-img" src="${esc(s.photo_url)}" alt="Foto del basural"
+           onerror="this.style.display='none'">
+      <div class="card-body">
+        <div class="card-tags">
+          <span class="tag" style="background:#F0B5001a;color:#F0B500;border:1px solid #F0B50044;">COMUNIDAD</span>
+        </div>
+        <div class="card-desc" style="margin-top:8px;">${esc(date)}</div>
+        <div style="margin-top:8px;">
+          <a href="${esc(mapsUrl)}" target="_blank" style="font-size:11px;">Ver en Maps →</a>
         </div>
       </div>
     </div>`;
