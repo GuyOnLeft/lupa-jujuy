@@ -260,17 +260,24 @@
     }
 
     async function doAction(id, action, btn) {
-      btn.disabled = true;
-      btn.closest('.card').querySelectorAll('button').forEach(b => b.disabled = true);
+      const card = btn.closest('.card');
+      card.querySelectorAll('button').forEach(b => b.disabled = true);
       const res = await fetch(`${WORKER_URL}/admin/${action}/${id}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
       });
       if (res.ok) {
-        btn.closest('.card').style.opacity = '0.3';
+        card.style.transition = 'opacity 0.3s';
+        card.style.opacity = '0';
+        setTimeout(() => {
+          card.remove();
+          const remaining = document.querySelectorAll('.card').length;
+          document.getElementById('status').textContent =
+            remaining === 0 ? t('none') : t('pending', remaining);
+        }, 300);
       } else {
         alert(`Error ${res.status}`);
-        btn.closest('.card').querySelectorAll('button').forEach(b => b.disabled = false);
+        card.querySelectorAll('button').forEach(b => b.disabled = false);
       }
     }
   </script>
