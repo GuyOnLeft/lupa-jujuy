@@ -37,9 +37,39 @@ describe('supabase helpers', () => {
           lng: -65.30,
           photo_url: 'https://cdn/photo.jpg',
           sender_hash: 'abc',
+          source: 'whatsapp',
           status: 'pending',
         }),
       })
+    );
+  });
+
+  it('insertReport includes source in body', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ id: 'xyz-789' }]), { status: 201 })
+    );
+    const { insertReport } = await import('../src/supabase.js');
+    await insertReport(
+      { url: 'https://proj.supabase.co', key: 'service-key' },
+      { lat: -24.19, lng: -65.30, photoUrl: 'https://cdn/photo.jpg', senderHash: 'abc', source: 'web' }
+    );
+    const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(callBody.source).toBe('web');
+  });
+
+  it('insertContestation sends correct POST', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify([{ id: 'con-111' }]), { status: 201 })
+    );
+    const { insertContestation } = await import('../src/supabase.js');
+    const id = await insertContestation(
+      { url: 'https://proj.supabase.co', key: 'service-key' },
+      { lat: -24.19, lng: -65.30, photoUrl: 'https://cdn/photo.jpg', senderHash: 'abc', source: 'whatsapp' }
+    );
+    expect(id).toBe('con-111');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://proj.supabase.co/rest/v1/contestations',
+      expect.objectContaining({ method: 'POST' })
     );
   });
 });
