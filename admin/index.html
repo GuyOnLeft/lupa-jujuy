@@ -4,37 +4,119 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lupa Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg: #0A0908; --ink: #D8D5CD; --dim: #6B6760; --amber: #F0B500; --green: #3DD68C; --red: #E84040; --border: #1E1C1A; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: var(--bg); color: var(--ink); font-family: 'IBM Plex Mono', monospace; padding: 1.5rem; }
-    h1 { color: var(--amber); font-size: 1rem; letter-spacing: 0.1em; margin-bottom: 1.5rem; }
-    #login { max-width: 360px; }
-    #login input { width: 100%; padding: 0.6rem; background: #111; border: 1px solid var(--border); color: var(--ink); border-radius: 4px; margin-bottom: 0.75rem; font-family: inherit; }
-    #login button { padding: 0.6rem 1.2rem; background: var(--amber); color: #000; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: bold; }
-    .card { display: flex; gap: 1rem; align-items: flex-start; padding: 0.75rem; background: #111; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; }
-    .card img { width: 100px; height: 75px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
-    .card-meta { flex: 1; font-size: 12px; }
-    .card-meta .coords { color: var(--ink); margin-bottom: 4px; }
-    .card-meta .date { color: var(--dim); }
-    .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-    .btn-approve { background: #1e3a2a; color: var(--green); border: 1px solid var(--green); border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
-    .btn-reject  { background: #3a1a1a; color: var(--red);   border: 1px solid var(--red);   border-radius: 4px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; }
-    .btn-approve:disabled, .btn-reject:disabled { opacity: 0.4; cursor: default; }
-    #status { color: var(--dim); font-size: 12px; margin-bottom: 1rem; }
-    #queue { display: none; }
-    a { color: var(--amber); }
+    body { background: #111; color: #fff; font-family: 'Space Mono', monospace; min-height: 100vh; }
+
+    /* ── Login (full-screen centered) ───────────────── */
+    #login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #login {
+      width: 320px;
+      border: 2px solid #fff;
+      box-shadow: 4px 4px 0 #fff;
+      padding: 1.5rem;
+    }
+    #login h1 {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #333;
+    }
+    #login input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      background: #000;
+      border: 1px solid #fff;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+      margin-bottom: 0.75rem;
+      outline: none;
+    }
+    #login input::placeholder { color: #555; }
+    #login input:focus { border-color: #fff; box-shadow: 2px 2px 0 #fff; }
+    #login button {
+      width: 100%;
+      padding: 0.6rem;
+      background: #fff;
+      color: #111;
+      border: 2px solid #fff;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    #login button:hover { background: #ddd; }
+
+    /* ── Queue (moderation list) ─────────────────────── */
+    #queue { display: none; padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+    #queue h1 {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #333;
+    }
+    #status { color: #666; font-size: 11px; margin-bottom: 1rem; letter-spacing: 0.05em; }
+    .card {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.75rem;
+      border: 2px solid #fff;
+      box-shadow: 3px 3px 0 #fff;
+      margin-bottom: 1rem;
+    }
+    .card img { width: 100px; height: 75px; object-fit: cover; border: 1px solid #333; flex-shrink: 0; }
+    .card-meta { flex: 1; font-size: 11px; }
+    .card-meta .coords { color: #fff; margin-bottom: 4px; }
+    .card-meta .date { color: #666; }
+    .actions { display: flex; gap: 0.5rem; flex-shrink: 0; align-items: flex-start; }
+    .btn-approve {
+      background: #fff; color: #111;
+      border: 1px solid #fff;
+      padding: 4px 10px; font-size: 11px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-reject {
+      background: transparent; color: #fff;
+      border: 1px solid #fff;
+      padding: 4px 10px; font-size: 11px;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-approve:hover { background: #ddd; }
+    .btn-reject:hover { background: #222; }
+    .btn-approve:disabled, .btn-reject:disabled { opacity: 0.3; cursor: default; }
+    a { color: #fff; }
   </style>
 </head>
 <body>
-  <h1>LUPA ADMIN ── Moderación de reportes</h1>
-
-  <div id="login">
-    <input type="password" id="pw-input" placeholder="Contraseña">
-    <button id="pw-btn">Entrar</button>
+  <div id="login-wrap">
+    <div id="login">
+      <h1>Lupa Admin ── Moderación</h1>
+      <input type="password" id="pw-input" placeholder="Contraseña">
+      <button id="pw-btn">Entrar</button>
+    </div>
   </div>
 
   <div id="queue">
+    <h1>Lupa Admin ── Reportes pendientes</h1>
     <div id="status">Cargando...</div>
     <div id="cards"></div>
   </div>
@@ -51,7 +133,7 @@
     document.getElementById('pw-btn').addEventListener('click', async () => {
       token = document.getElementById('pw-input').value.trim();
       if (!token) return;
-      document.getElementById('login').style.display = 'none';
+      document.getElementById('login-wrap').style.display = 'none';
       document.getElementById('queue').style.display = 'block';
       await loadPending();
     });
