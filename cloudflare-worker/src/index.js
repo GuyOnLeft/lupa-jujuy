@@ -11,6 +11,13 @@ function twiml(message) {
   );
 }
 
+function twimlSilent() {
+  return new Response(
+    '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+    { status: 200, headers: { 'Content-Type': 'text/xml' } }
+  );
+}
+
 async function isTwilioRequest(request, body, authToken) {
   if (!authToken) return false;
   const signature = request.headers.get('X-Twilio-Signature') || '';
@@ -101,7 +108,7 @@ async function handleWebhook(request, env) {
     const sessionJson = await env.SESSIONS.get(senderHash);
     if (!sessionJson) return twiml(MSG.intro);
 
-    const { lat, lng } = JSON.parse(sessionJson);
+    const { lat, lng, thanked } = JSON.parse(sessionJson);
 
     try {
       const mediaRes = await fetch(msg.mediaUrl, {
@@ -110,15 +117,22 @@ async function handleWebhook(request, env) {
         },
       });
       const photoBuffer = await mediaRes.arrayBuffer();
-
       const tempId = crypto.randomUUID();
       const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, msg.contentType);
       await insertReport(sb, { lat, lng, photoUrl, senderHash });
-      await env.SESSIONS.delete(senderHash);
-      return twiml(MSG.thanks);
     } catch (e) {
       console.error('submission error', e);
       return twiml(MSG.error);
+    }
+
+    if (thanked) {
+      // Additional photo in same batch — record saved, no duplicate confirmation
+      await env.SESSIONS.put(senderHash, JSON.stringify({ lat, lng, thanked: true }), { expirationTtl: 30 });
+      return twimlSilent();
+    } else {
+      // First photo — confirm and mark session so subsequent photos stay silent
+      await env.SESSIONS.put(senderHash, JSON.stringify({ lat, lng, thanked: true }), { expirationTtl: 30 });
+      return twiml(MSG.thanks);
     }
   }
 
