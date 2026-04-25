@@ -1,5 +1,8 @@
 import { parseTwilioBody, parseMapsUrl, hashSender, MSG } from './bot.js';
-import { insertReport, fetchPending, updateStatus, uploadPhoto } from './supabase.js';
+import {
+  insertReport, fetchPending, updateStatus, uploadPhoto,
+  insertContestation, fetchPendingContestations, updateContestationStatus, fetchContestationById,
+} from './supabase.js';
 
 const ALLOWED_ORIGIN = 'https://guyonleft.github.io';
 
@@ -54,6 +57,14 @@ function isAuthed(request, env) {
   return auth === `Bearer ${env.ADMIN_PASSWORD}`;
 }
 
+// Returns true if allowed (first use), false if rate-limited.
+async function checkRateLimit(kv, key, ttlSeconds) {
+  const existing = await kv.get(key);
+  if (existing) return false;
+  await kv.put(key, '1', { expirationTtl: ttlSeconds });
+  return true;
+}
+
 async function handleWebhook(request, env) {
   const text = await request.text();
 
@@ -66,10 +77,17 @@ async function handleWebhook(request, env) {
   const senderHash = await hashSender(msg.rawFrom);
   const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
 
+  const sessionJson = await env.SESSIONS.get(senderHash);
+  const session = sessionJson ? JSON.parse(sessionJson) : null;
+
   if (msg.type === 'location') {
+    if (!session?.flow) {
+      await env.SESSIONS.put(senderHash, JSON.stringify({ menuSent: true }), { expirationTtl: 300 });
+      return twiml(MSG.menu);
+    }
     await env.SESSIONS.put(
       senderHash,
-      JSON.stringify({ lat: msg.lat, lng: msg.lng }),
+      JSON.stringify({ flow: session.flow, lat: msg.lat, lng: msg.lng }),
       { expirationTtl: 300 }
     );
     return twiml(MSG.gotLoc);
@@ -85,14 +103,18 @@ async function handleWebhook(request, env) {
         try {
           const res = await fetch(shortMatch[0], { redirect: 'follow' });
           coords = parseMapsUrl(res.url);
-        } catch (_) { /* network error — fall through to badUrl */ }
+        } catch (_) { /* network error — fall through */ }
       }
     }
 
     if (coords) {
+      if (!session?.flow) {
+        await env.SESSIONS.put(senderHash, JSON.stringify({ menuSent: true }), { expirationTtl: 300 });
+        return twiml(MSG.menu);
+      }
       await env.SESSIONS.put(
         senderHash,
-        JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+        JSON.stringify({ flow: session.flow, lat: coords.lat, lng: coords.lng }),
         { expirationTtl: 300 }
       );
       return twiml(MSG.gotLocMaps);
@@ -101,14 +123,40 @@ async function handleWebhook(request, env) {
     const looksLikeMapsLink = /google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/.test(msg.body);
     if (looksLikeMapsLink) return twiml(MSG.badUrl);
 
-    return twiml(MSG.intro);
+    // Menu selection
+    const trimmed = msg.body.trim();
+    if (trimmed === '1') {
+      await env.SESSIONS.put(senderHash, JSON.stringify({ flow: 'report' }), { expirationTtl: 300 });
+      return twiml(MSG.askLocReport);
+    }
+    if (trimmed === '2') {
+      await env.SESSIONS.put(senderHash, JSON.stringify({ flow: 'contest' }), { expirationTtl: 300 });
+      return twiml(MSG.askLocContest);
+    }
+
+    // Any other text — send/re-send menu
+    await env.SESSIONS.put(senderHash, JSON.stringify({ menuSent: true }), { expirationTtl: 300 });
+    return twiml(MSG.menu);
   }
 
   if (msg.type === 'media') {
-    const sessionJson = await env.SESSIONS.get(senderHash);
-    if (!sessionJson) return twiml(MSG.intro);
+    if (!session?.flow || session.lat == null) {
+      await env.SESSIONS.put(senderHash, JSON.stringify({ menuSent: true }), { expirationTtl: 300 });
+      return twiml(MSG.menu);
+    }
 
-    const { lat, lng, thanked } = JSON.parse(sessionJson);
+    const { flow, lat, lng, thanked } = session;
+
+    // Rate limit contestations: 1 per sender per site per 24h
+    if (flow === 'contest') {
+      const lat3 = Math.round(lat * 1000);
+      const lng3 = Math.round(lng * 1000);
+      const rlKey = `rl_contest:${senderHash}:${lat3}:${lng3}`;
+      const allowed = await checkRateLimit(env.SESSIONS, rlKey, 86400);
+      if (!allowed) {
+        return twiml('⚠️ Ya enviaste una contestación para este lugar en las últimas 24 horas.');
+      }
+    }
 
     try {
       const mediaRes = await fetch(msg.mediaUrl, {
@@ -119,24 +167,127 @@ async function handleWebhook(request, env) {
       const photoBuffer = await mediaRes.arrayBuffer();
       const tempId = crypto.randomUUID();
       const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, msg.contentType);
-      await insertReport(sb, { lat, lng, photoUrl, senderHash });
+
+      if (flow === 'contest') {
+        await insertContestation(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
+      } else {
+        await insertReport(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
+      }
     } catch (e) {
       console.error('submission error', e);
       return twiml(MSG.error);
     }
 
     if (thanked) {
-      // Additional photo in same batch — record saved, no duplicate confirmation
-      await env.SESSIONS.put(senderHash, JSON.stringify({ lat, lng, thanked: true }), { expirationTtl: 30 });
+      await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
       return twimlSilent();
     } else {
-      // First photo — confirm and mark session so subsequent photos stay silent
-      await env.SESSIONS.put(senderHash, JSON.stringify({ lat, lng, thanked: true }), { expirationTtl: 30 });
-      return twiml(MSG.thanks);
+      await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
+      return twiml(flow === 'contest' ? MSG.contestThanks : MSG.thanks);
     }
   }
 
-  return twiml(MSG.intro);
+  return twiml(MSG.menu);
+}
+
+async function handleWebSubmit(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (origin !== ALLOWED_ORIGIN) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  let formData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid form data' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  const lat = parseFloat(formData.get('lat'));
+  const lng = parseFloat(formData.get('lng'));
+  if (isNaN(lat) || isNaN(lng)) {
+    return new Response(JSON.stringify({ error: 'lat and lng required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  const photoFile = formData.get('photo');
+  if (!photoFile || typeof photoFile === 'string') {
+    return new Response(JSON.stringify({ error: 'photo required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  // Rate limit: 5 web submissions per IP per hour
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const rlKey = `rl_web_submit:${ip}`;
+  const existing = await env.SESSIONS.get(rlKey);
+  const count = existing ? parseInt(existing) : 0;
+  if (count >= 5) {
+    return new Response(JSON.stringify({ error: 'Too many submissions. Try again later.' }), { status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+  await env.SESSIONS.put(rlKey, String(count + 1), { expirationTtl: 3600 });
+
+  const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
+  try {
+    const photoBuffer = await photoFile.arrayBuffer();
+    const tempId = crypto.randomUUID();
+    const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, photoFile.type || 'image/jpeg');
+    const id = await insertReport(sb, { lat, lng, photoUrl, senderHash: null, source: 'web' });
+    return new Response(JSON.stringify({ success: true, id }), { status: 201, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  } catch (e) {
+    console.error('web submit error', e);
+    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+}
+
+async function handleWebContest(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+  }
+  if (origin !== ALLOWED_ORIGIN) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  let formData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid form data' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  const lat = parseFloat(formData.get('lat'));
+  const lng = parseFloat(formData.get('lng'));
+  if (isNaN(lat) || isNaN(lng)) {
+    return new Response(JSON.stringify({ error: 'lat and lng required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  const photoFile = formData.get('photo');
+  if (!photoFile || typeof photoFile === 'string') {
+    return new Response(JSON.stringify({ error: 'photo required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  // Rate limit: 1 web contestation per IP per site per 24h
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const lat3 = Math.round(lat * 1000);
+  const lng3 = Math.round(lng * 1000);
+  const rlKey = `rl_web_contest:${ip}:${lat3}:${lng3}`;
+  const allowed = await checkRateLimit(env.SESSIONS, rlKey, 86400);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: 'Ya contestaste este lugar en las últimas 24 horas.' }), { status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
+
+  const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
+  try {
+    const photoBuffer = await photoFile.arrayBuffer();
+    const tempId = crypto.randomUUID();
+    const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, photoFile.type || 'image/jpeg');
+    await insertContestation(sb, { lat, lng, photoUrl, senderHash: null, source: 'web' });
+    return new Response(JSON.stringify({ success: true }), { status: 201, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  } catch (e) {
+    console.error('web contest error', e);
+    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+  }
 }
 
 async function handleAdminPending(request, env) {
@@ -149,6 +300,22 @@ async function handleAdminPending(request, env) {
   }
   const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
   const rows = await fetchPending(sb);
+  return new Response(JSON.stringify(rows), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, true) },
+  });
+}
+
+async function handleAdminContestations(request, env) {
+  const origin = request.headers.get('Origin') || '';
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(origin, true) });
+  }
+  if (!isAuthed(request, env)) {
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin, true) });
+  }
+  const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
+  const rows = await fetchPendingContestations(sb);
   return new Response(JSON.stringify(rows), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, true) },
@@ -170,6 +337,24 @@ async function handleAdminAction(request, env, id, newStatus) {
   return new Response('OK', { status: 200, headers: corsHeaders(origin, true) });
 }
 
+async function handleAdminContestAction(request, env, id, newStatus) {
+  const origin = request.headers.get('Origin') || '';
+  if (!isAuthed(request, env)) {
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin, true) });
+  }
+  const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
+  await updateContestationStatus(sb, id, newStatus);
+
+  if (newStatus === 'approved') {
+    const contestation = await fetchContestationById(sb, id);
+    if (contestation) {
+      await triggerRemovedSitesUpdate(env, contestation.lat, contestation.lng);
+    }
+  }
+
+  return new Response('OK', { status: 200, headers: corsHeaders(origin, true) });
+}
+
 async function triggerMapRegeneration(env) {
   const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/dispatches`, {
     method: 'POST',
@@ -184,6 +369,20 @@ async function triggerMapRegeneration(env) {
   if (!res.ok) console.error('GitHub dispatch failed:', res.status);
 }
 
+async function triggerRemovedSitesUpdate(env, lat, lng) {
+  const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/dispatches`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'lupa-submission-worker',
+    },
+    body: JSON.stringify({ event_type: 'update-removed-sites', client_payload: { lat, lng } }),
+  });
+  if (!res.ok) console.error('GitHub dispatch (removed-sites) failed:', res.status);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -193,8 +392,17 @@ export default {
     if (method === 'POST' && pathname === '/webhook') {
       return handleWebhook(request, env);
     }
+    if ((method === 'POST' || method === 'OPTIONS') && pathname === '/submit') {
+      return handleWebSubmit(request, env);
+    }
+    if ((method === 'POST' || method === 'OPTIONS') && pathname === '/contest') {
+      return handleWebContest(request, env);
+    }
     if (pathname === '/admin/pending') {
       return handleAdminPending(request, env);
+    }
+    if (pathname === '/admin/contestations') {
+      return handleAdminContestations(request, env);
     }
     const approveMatch = pathname.match(/^\/admin\/approve\/([^/]+)$/);
     if (method === 'POST' && approveMatch) {
@@ -203,6 +411,14 @@ export default {
     const rejectMatch = pathname.match(/^\/admin\/reject\/([^/]+)$/);
     if (method === 'POST' && rejectMatch) {
       return handleAdminAction(request, env, rejectMatch[1], 'rejected');
+    }
+    const approveContestMatch = pathname.match(/^\/admin\/approve-contest\/([^/]+)$/);
+    if (method === 'POST' && approveContestMatch) {
+      return handleAdminContestAction(request, env, approveContestMatch[1], 'approved');
+    }
+    const rejectContestMatch = pathname.match(/^\/admin\/reject-contest\/([^/]+)$/);
+    if (method === 'POST' && rejectContestMatch) {
+      return handleAdminContestAction(request, env, rejectContestMatch[1], 'rejected');
     }
 
     return new Response('Not found', { status: 404 });

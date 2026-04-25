@@ -199,7 +199,7 @@ describe('worker routing', () => {
     });
     const env = {
       TWILIO_AUTH_TOKEN: authToken,
-      SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+      SESSIONS: { get: vi.fn().mockResolvedValue(JSON.stringify({ flow: 'report' })), put: vi.fn().mockResolvedValue(null), delete: vi.fn() },
       SUPABASE_URL: 'https://proj.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
     };
@@ -213,5 +213,47 @@ describe('worker routing', () => {
       expect.stringContaining('-24.1857'),
       { expirationTtl: 300 }
     );
+  });
+
+  it('POST /webhook returns menu when no session and text message', async () => {
+    vi.resetModules();
+    const { default: worker } = await import('../src/index.js');
+    const authToken = 'test-token';
+    const url = 'https://worker.example/webhook';
+    const body = new URLSearchParams({ From: 'whatsapp:+54911', Body: 'hola', MessageType: 'text' });
+    const bodyStr = body.toString();
+    const sig = await twilioSig(url, bodyStr, authToken);
+    const req = new Request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Twilio-Signature': sig },
+      body: bodyStr,
+    });
+    const env = {
+      TWILIO_AUTH_TOKEN: authToken,
+      SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null) },
+    };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('1️⃣');
+  });
+
+  it('POST /submit returns 400 without lat/lng', async () => {
+    vi.resetModules();
+    const { default: worker } = await import('../src/index.js');
+    const formData = new FormData();
+    formData.append('lat', 'notanumber');
+    const req = new Request('https://worker.example/submit', {
+      method: 'POST',
+      headers: { 'Origin': 'https://guyonleft.github.io' },
+      body: formData,
+    });
+    const env = {
+      SESSIONS: { get: vi.fn(), put: vi.fn() },
+      SUPABASE_URL: 'https://proj.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'key',
+    };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(400);
   });
 });
