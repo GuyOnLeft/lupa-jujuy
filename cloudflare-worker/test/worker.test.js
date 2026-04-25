@@ -83,3 +83,44 @@ describe('bot helpers', () => {
     expect(msg.type).toBe('unknown');
   });
 });
+
+describe('worker routing', () => {
+  it('returns 404 for unknown routes', async () => {
+    const { default: worker } = await import('../src/index.js');
+    const req = new Request('https://worker.example/unknown', { method: 'GET' });
+    const env = { SESSIONS: { get: vi.fn(), put: vi.fn(), delete: vi.fn() } };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /webhook returns 200 for location message', async () => {
+    mockFetch.mockResolvedValue(new Response('{}', { status: 200 })); // Twilio reply
+    const { default: worker } = await import('../src/index.js');
+
+    const body = new URLSearchParams({
+      From: 'whatsapp:+5491100000000',
+      MessageType: 'location',
+      Latitude: '-24.1857',
+      Longitude: '-65.2995',
+    });
+    const req = new Request('https://worker.example/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const env = {
+      SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null), delete: vi.fn() },
+      TWILIO_ACCOUNT_SID: 'sid',
+      TWILIO_AUTH_TOKEN: 'token',
+      SUPABASE_URL: 'https://proj.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'key',
+    };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(200);
+    expect(env.SESSIONS.put).toHaveBeenCalledWith(
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+      expect.stringContaining('-24.1857'),
+      { expirationTtl: 300 }
+    );
+  });
+});
