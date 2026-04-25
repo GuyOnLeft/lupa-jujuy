@@ -84,6 +84,14 @@ describe('bot helpers', () => {
     expect(msg.body).toBe('hola');
   });
 
+  it('parseTwilioBody returns type text with body for numeric message', async () => {
+    const { parseTwilioBody } = await import('../src/bot.js');
+    const body = new URLSearchParams({ From: 'whatsapp:+54911', Body: '1' });
+    const msg = parseTwilioBody(body);
+    expect(msg.type).toBe('text');
+    expect(msg.body).toBe('1');
+  });
+
   it('parseMapsUrl extracts coords from /@lat,lng format', async () => {
     const { parseMapsUrl } = await import('../src/bot.js');
     const url = 'https://www.google.com/maps/place/Jujuy/@-24.1857,-65.2995,15z/data=abc';
