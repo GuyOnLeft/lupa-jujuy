@@ -76,11 +76,31 @@ describe('bot helpers', () => {
     expect(msg.contentType).toBe('image/jpeg');
   });
 
-  it('parseTwilioBody returns unknown for text messages', async () => {
+  it('parseTwilioBody returns text type for plain messages', async () => {
     const { parseTwilioBody } = await import('../src/bot.js');
     const body = new URLSearchParams({ From: 'whatsapp:+54911', Body: 'hola' });
     const msg = parseTwilioBody(body);
-    expect(msg.type).toBe('unknown');
+    expect(msg.type).toBe('text');
+    expect(msg.body).toBe('hola');
+  });
+
+  it('parseMapsUrl extracts coords from /@lat,lng format', async () => {
+    const { parseMapsUrl } = await import('../src/bot.js');
+    const url = 'https://www.google.com/maps/place/Jujuy/@-24.1857,-65.2995,15z/data=abc';
+    const coords = parseMapsUrl(url);
+    expect(coords).toEqual({ lat: -24.1857, lng: -65.2995 });
+  });
+
+  it('parseMapsUrl extracts coords from ?q=lat,lng format', async () => {
+    const { parseMapsUrl } = await import('../src/bot.js');
+    const url = 'https://maps.google.com/?q=-24.1923,-65.3041';
+    const coords = parseMapsUrl(url);
+    expect(coords).toEqual({ lat: -24.1923, lng: -65.3041 });
+  });
+
+  it('parseMapsUrl returns null for non-maps text', async () => {
+    const { parseMapsUrl } = await import('../src/bot.js');
+    expect(parseMapsUrl('hola cómo estás')).toBeNull();
   });
 });
 

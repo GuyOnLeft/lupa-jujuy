@@ -28,7 +28,21 @@ export function parseTwilioBody(params) {
       rawFrom,
     };
   }
+  const body = (params.get('Body') || '').trim();
+  if (body) {
+    return { type: 'text', body, rawFrom };
+  }
   return { type: 'unknown', rawFrom };
+}
+
+// Parses lat/lng from a standard Google Maps share URL.
+// Returns { lat, lng } or null if not found.
+export function parseMapsUrl(text) {
+  const atMatch = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+  const qMatch = text.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+  return null;
 }
 
 export async function hashSender(rawFrom) {
@@ -58,9 +72,11 @@ export async function twilioReply(accountSid, authToken, to, body) {
 }
 
 export const MSG = {
-  intro:   '👋 ¡Hola! Para reportar un basural mandá primero tu 📍 ubicación y después una 📷 foto.',
-  gotLoc:  '📍 Ubicación recibida. Ahora mandá la foto del basural.',
-  thanks:  '✅ ¡Gracias! Tu reporte está en revisión y va a aparecer en el mapa pronto. Podés verlo acá: https://guyonleft.github.io/lupa-jujuy/map.html',
-  timeout: '¿Todavía estás ahí? Cuando puedas, mandá la foto del basural 📷',
-  error:   'Hubo un problema al procesar tu reporte. Probá de nuevo en unos minutos.',
+  intro:      '👋 ¡Hola! Para reportar un basural, contanos: ¿estás en el lugar ahora mismo?\n\n📍 *Si estás ahí*: tocá el clip 📎 → Ubicación y mandala.\n🗺 *Si ya te fuiste*: abrí Google Maps, poné un pin en el lugar y pegá el link acá.',
+  gotLoc:     '📍 Ubicación recibida. Ahora mandá la foto del basural 📷',
+  gotLocMaps: '🗺 Ubicación registrada. Ahora mandá la foto del basural 📷',
+  thanks:     '✅ ¡Gracias! Tu reporte está en revisión y va a aparecer en el mapa pronto. Podés verlo acá: https://guyonleft.github.io/lupa-jujuy/map.html',
+  timeout:    '¿Todavía estás ahí? Cuando puedas, mandá la foto del basural 📷',
+  badUrl:     '⚠️ No pude leer las coordenadas de ese link. Probá con "Compartir → Copiar enlace" en Google Maps y pegá el link acá.',
+  error:      'Hubo un problema al procesar tu reporte. Probá de nuevo en unos minutos.',
 };

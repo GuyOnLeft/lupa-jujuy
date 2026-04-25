@@ -1,4 +1,4 @@
-import { parseTwilioBody, hashSender, twilioReply, MSG } from './bot.js';
+import { parseTwilioBody, parseMapsUrl, hashSender, twilioReply, MSG } from './bot.js';
 import { insertReport, fetchPending, updateStatus, uploadPhoto } from './supabase.js';
 
 const ALLOWED_ORIGIN = 'https://guyonleft.github.io';
@@ -31,6 +31,43 @@ async function handleWebhook(request, env) {
       { expirationTtl: 300 }
     );
     await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.gotLoc);
+    return new Response('OK', { status: 200 });
+  }
+
+  if (msg.type === 'text') {
+    // Try to parse a Google Maps URL the user pasted
+    let coords = parseMapsUrl(msg.body);
+
+    // Short URLs (maps.app.goo.gl / goo.gl/maps) — follow redirect to get the real URL
+    if (!coords && /maps\.app\.goo\.gl|goo\.gl\/maps/.test(msg.body)) {
+      const shortMatch = msg.body.match(/https?:\/\/[^\s]+/);
+      if (shortMatch) {
+        try {
+          const res = await fetch(shortMatch[0], { redirect: 'follow' });
+          coords = parseMapsUrl(res.url);
+        } catch (_) { /* network error — fall through to badUrl */ }
+      }
+    }
+
+    if (coords) {
+      await env.SESSIONS.put(
+        senderHash,
+        JSON.stringify({ lat: coords.lat, lng: coords.lng }),
+        { expirationTtl: 300 }
+      );
+      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.gotLocMaps);
+      return new Response('OK', { status: 200 });
+    }
+
+    // Looks like a maps URL but coords couldn't be parsed
+    const looksLikeMapsLink = /google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/.test(msg.body);
+    if (looksLikeMapsLink) {
+      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.badUrl);
+      return new Response('OK', { status: 200 });
+    }
+
+    // Plain text — send intro
+    await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.intro);
     return new Response('OK', { status: 200 });
   }
 
