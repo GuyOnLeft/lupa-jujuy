@@ -31,10 +31,12 @@ async function isTwilioRequest(request, body, authToken) {
   return signature === expected;
 }
 
-function corsHeaders(origin) {
-  if (origin !== ALLOWED_ORIGIN) return {};
+// Webhook: strict origin. Admin: open (protected by Bearer token instead).
+function corsHeaders(origin, forAdmin = false) {
+  const allowedOrigin = forAdmin ? (origin || '*') : (origin === ALLOWED_ORIGIN ? ALLOWED_ORIGIN : null);
+  if (!allowedOrigin) return {};
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
   };
@@ -126,23 +128,23 @@ async function handleWebhook(request, env) {
 async function handleAdminPending(request, env) {
   const origin = request.headers.get('Origin') || '';
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    return new Response(null, { status: 204, headers: corsHeaders(origin, true) });
   }
   if (!isAuthed(request, env)) {
-    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin) });
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin, true) });
   }
   const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
   const rows = await fetchPending(sb);
   return new Response(JSON.stringify(rows), {
     status: 200,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, true) },
   });
 }
 
 async function handleAdminAction(request, env, id, newStatus) {
   const origin = request.headers.get('Origin') || '';
   if (!isAuthed(request, env)) {
-    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin) });
+    return new Response('Unauthorized', { status: 401, headers: corsHeaders(origin, true) });
   }
   const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
   await updateStatus(sb, id, newStatus);
@@ -151,7 +153,7 @@ async function handleAdminAction(request, env, id, newStatus) {
     await triggerMapRegeneration(env);
   }
 
-  return new Response('OK', { status: 200, headers: corsHeaders(origin) });
+  return new Response('OK', { status: 200, headers: corsHeaders(origin, true) });
 }
 
 async function triggerMapRegeneration(env) {

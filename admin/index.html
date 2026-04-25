@@ -104,9 +104,21 @@
     .btn-reject:hover { background: #222; }
     .btn-approve:disabled, .btn-reject:disabled { opacity: 0.3; cursor: default; }
     a { color: #fff; }
+
+    /* ── Language toggle ─────────────────────────────── */
+    #lang-toggle {
+      position: fixed; top: 1rem; right: 1rem;
+      background: transparent; color: #fff;
+      border: 1px solid #fff; padding: 3px 10px;
+      font-family: inherit; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.1em; cursor: pointer; z-index: 100;
+    }
+    #lang-toggle:hover { background: #222; }
   </style>
 </head>
 <body>
+  <button id="lang-toggle">EN</button>
+
   <div id="login-wrap">
     <div id="login">
       <h1>Lupa Admin ── Moderación</h1>
@@ -124,7 +136,60 @@
   <script>
     const WORKER_URL = 'https://lupa-submission.jmunson0711.workers.dev';
 
+    const T = {
+      es: {
+        loginTitle:   'Lupa Admin ── Moderación',
+        placeholder:  'Contraseña',
+        enter:        'Entrar',
+        queueTitle:   'Lupa Admin ── Reportes pendientes',
+        loading:      'Cargando...',
+        none:         'No hay reportes pendientes.',
+        pending:      n => `${n} reporte(s) pendiente(s)`,
+        wrongPw:      'Contraseña incorrecta.',
+        approve:      '✓ Aprobar',
+        reject:       '✗ Rechazar',
+        langBtn:      'EN',
+      },
+      en: {
+        loginTitle:   'Lupa Admin ── Moderation',
+        placeholder:  'Password',
+        enter:        'Enter',
+        queueTitle:   'Lupa Admin ── Pending reports',
+        loading:      'Loading...',
+        none:         'No pending reports.',
+        pending:      n => `${n} pending report(s)`,
+        wrongPw:      'Wrong password.',
+        approve:      '✓ Approve',
+        reject:       '✗ Reject',
+        langBtn:      'ES',
+      },
+    };
+
+    let lang = localStorage.getItem('admin-lang') || 'es';
     let token = '';
+
+    function t(key, ...args) {
+      const val = T[lang][key];
+      return typeof val === 'function' ? val(...args) : val;
+    }
+
+    function applyLang() {
+      document.getElementById('lang-toggle').textContent = t('langBtn');
+      document.querySelector('#login h1').textContent    = t('loginTitle');
+      document.getElementById('pw-input').placeholder   = t('placeholder');
+      document.getElementById('pw-btn').textContent     = t('enter');
+      document.querySelector('#queue h1').textContent   = t('queueTitle');
+      document.querySelectorAll('.btn-approve').forEach(b => b.textContent = t('approve'));
+      document.querySelectorAll('.btn-reject').forEach(b  => b.textContent = t('reject'));
+    }
+
+    document.getElementById('lang-toggle').addEventListener('click', () => {
+      lang = lang === 'es' ? 'en' : 'es';
+      localStorage.setItem('admin-lang', lang);
+      applyLang();
+    });
+
+    applyLang();
 
     function esc(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -141,40 +206,34 @@
     async function loadPending() {
       const status = document.getElementById('status');
       const cards  = document.getElementById('cards');
-      status.textContent = 'Cargando...';
+      status.textContent = t('loading');
       cards.innerHTML = '';
 
       const res = await fetch(`${WORKER_URL}/admin/pending`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      if (res.status === 401) {
-        status.textContent = 'Contraseña incorrecta.';
-        return;
-      }
-      if (!res.ok) {
-        status.textContent = `Error ${res.status}`;
-        return;
-      }
+      if (res.status === 401) { status.textContent = t('wrongPw'); return; }
+      if (!res.ok) { status.textContent = `Error ${res.status}`; return; }
 
       const rows = await res.json();
-      status.textContent = rows.length === 0 ? 'No hay reportes pendientes.' : `${rows.length} reporte(s) pendiente(s)`;
+      status.textContent = rows.length === 0 ? t('none') : t('pending', rows.length);
 
       rows.forEach(row => {
-        const date = new Date(row.submitted_at).toLocaleString('es-AR');
+        const date = new Date(row.submitted_at).toLocaleString(lang === 'es' ? 'es-AR' : 'en-US');
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
           <a href="${esc(row.photo_url)}" target="_blank">
-            <img src="${esc(row.photo_url)}" alt="foto reporte">
+            <img src="${esc(row.photo_url)}" alt="report photo">
           </a>
           <div class="card-meta">
             <div class="coords">${esc(row.lat.toFixed(5))}, ${esc(row.lng.toFixed(5))}</div>
             <div class="date">${esc(date)}</div>
           </div>
           <div class="actions">
-            <button class="btn-approve" data-id="${esc(row.id)}">✓ Aprobar</button>
-            <button class="btn-reject"  data-id="${esc(row.id)}">✗ Rechazar</button>
+            <button class="btn-approve" data-id="${esc(row.id)}">${t('approve')}</button>
+            <button class="btn-reject"  data-id="${esc(row.id)}">${t('reject')}</button>
           </div>
         `;
         cards.appendChild(card);
