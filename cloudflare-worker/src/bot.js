@@ -72,7 +72,7 @@ export async function twilioReply(accountSid, authToken, to, body) {
 }
 
 export const MSG = {
-  intro:      '👋 ¡Hola! Para reportar un basural, contanos: ¿estás en el lugar ahora mismo?\n\n📍 *Si estás ahí*: tocá el clip 📎 → Ubicación y mandala.\n🗺 *Si ya te fuiste*: abrí Google Maps, poné un pin en el lugar y pegá el link acá.',
+  intro:      '👋 ¡Hola! Para reportar un basural, contanos: ¿estás en el lugar ahora mismo?\n\n📍 *Si estás ahí*: tocá el + → Ubicación y mandala.\n🗺 *Si ya te fuiste*: abrí Google Maps, poné un pin en el lugar y pegá el link acá.',
   gotLoc:     '📍 Ubicación recibida. Ahora mandá la foto del basural 📷',
   gotLocMaps: '🗺 Ubicación registrada. Ahora mandá la foto del basural 📷',
   thanks:     '✅ ¡Gracias! Tu reporte está en revisión y va a aparecer en el mapa pronto. Podés verlo acá: https://guyonleft.github.io/lupa-jujuy/map.html',
