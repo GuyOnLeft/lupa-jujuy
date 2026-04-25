@@ -11,6 +11,26 @@ function twiml(message) {
   );
 }
 
+async function isTwilioRequest(request, body, authToken) {
+  if (!authToken) return false;
+  const signature = request.headers.get('X-Twilio-Signature') || '';
+  if (!signature) return false;
+
+  const url = new URL(request.url).toString();
+  const params = new URLSearchParams(body);
+  const sortedKeys = [...params.keys()].sort();
+  let toSign = url;
+  for (const key of sortedKeys) toSign += key + (params.get(key) ?? '');
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(authToken), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+  );
+  const signed = await crypto.subtle.sign('HMAC', key, enc.encode(toSign));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(signed)));
+  return signature === expected;
+}
+
 function corsHeaders(origin) {
   if (origin !== ALLOWED_ORIGIN) return {};
   return {
@@ -27,6 +47,11 @@ function isAuthed(request, env) {
 
 async function handleWebhook(request, env) {
   const text = await request.text();
+
+  if (!await isTwilioRequest(request, text, env.TWILIO_AUTH_TOKEN)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
   const params = new URLSearchParams(text);
   const msg = parseTwilioBody(params);
   const senderHash = await hashSender(msg.rawFrom);

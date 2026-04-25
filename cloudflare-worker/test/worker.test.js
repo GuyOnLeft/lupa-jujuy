@@ -104,6 +104,19 @@ describe('bot helpers', () => {
   });
 });
 
+async function twilioSig(url, body, authToken) {
+  const params = new URLSearchParams(body);
+  const sortedKeys = [...params.keys()].sort();
+  let toSign = url;
+  for (const key of sortedKeys) toSign += key + (params.get(key) ?? '');
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(authToken), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+  );
+  const signed = await crypto.subtle.sign('HMAC', key, enc.encode(toSign));
+  return btoa(String.fromCharCode(...new Uint8Array(signed)));
+}
+
 describe('worker routing', () => {
   it('returns 404 for unknown routes', async () => {
     const { default: worker } = await import('../src/index.js');
@@ -113,21 +126,41 @@ describe('worker routing', () => {
     expect(res.status).toBe(404);
   });
 
-  it('POST /webhook returns TwiML for location message', async () => {
+  it('POST /webhook returns 403 without valid Twilio signature', async () => {
     const { default: worker } = await import('../src/index.js');
+    const req = new Request('https://worker.example/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'From=whatsapp%3A%2B123&MessageType=text&Body=hi',
+    });
+    const env = { TWILIO_AUTH_TOKEN: 'real-token', SESSIONS: { get: vi.fn(), put: vi.fn(), delete: vi.fn() } };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(403);
+  });
 
+  it('POST /webhook returns TwiML for location message with valid signature', async () => {
+    const { default: worker } = await import('../src/index.js');
+    const authToken = 'test-token';
+    const url = 'https://worker.example/webhook';
     const body = new URLSearchParams({
       From: 'whatsapp:+5491100000000',
       MessageType: 'location',
       Latitude: '-24.1857',
       Longitude: '-65.2995',
     });
-    const req = new Request('https://worker.example/webhook', {
+    const bodyStr = body.toString();
+    const sig = await twilioSig(url, bodyStr, authToken);
+
+    const req = new Request(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Twilio-Signature': sig,
+      },
+      body: bodyStr,
     });
     const env = {
+      TWILIO_AUTH_TOKEN: authToken,
       SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null), delete: vi.fn() },
       SUPABASE_URL: 'https://proj.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
