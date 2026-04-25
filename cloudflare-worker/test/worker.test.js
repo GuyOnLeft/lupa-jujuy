@@ -43,3 +43,43 @@ describe('supabase helpers', () => {
     );
   });
 });
+
+describe('bot helpers', () => {
+  it('parseTwilioBody extracts location message', async () => {
+    const { parseTwilioBody, hashSender } = await import('../src/bot.js');
+    const body = new URLSearchParams({
+      From: 'whatsapp:+5491100000000',
+      MessageType: 'location',
+      Latitude: '-24.1857',
+      Longitude: '-65.2995',
+    });
+    const msg = parseTwilioBody(body);
+    expect(msg.type).toBe('location');
+    expect(msg.lat).toBe(-24.1857);
+    expect(msg.lng).toBe(-65.2995);
+    const hash = await hashSender(msg.rawFrom);
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('parseTwilioBody extracts media message', async () => {
+    const { parseTwilioBody } = await import('../src/bot.js');
+    const body = new URLSearchParams({
+      From: 'whatsapp:+5491100000000',
+      MessageType: 'image',
+      NumMedia: '1',
+      MediaUrl0: 'https://api.twilio.com/media/xyz',
+      MediaContentType0: 'image/jpeg',
+    });
+    const msg = parseTwilioBody(body);
+    expect(msg.type).toBe('media');
+    expect(msg.mediaUrl).toBe('https://api.twilio.com/media/xyz');
+    expect(msg.contentType).toBe('image/jpeg');
+  });
+
+  it('parseTwilioBody returns unknown for text messages', async () => {
+    const { parseTwilioBody } = await import('../src/bot.js');
+    const body = new URLSearchParams({ From: 'whatsapp:+54911', Body: 'hola' });
+    const msg = parseTwilioBody(body);
+    expect(msg.type).toBe('unknown');
+  });
+});
