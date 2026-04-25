@@ -113,8 +113,7 @@ describe('worker routing', () => {
     expect(res.status).toBe(404);
   });
 
-  it('POST /webhook returns 200 for location message', async () => {
-    mockFetch.mockResolvedValue(new Response('{}', { status: 200 })); // Twilio reply
+  it('POST /webhook returns TwiML for location message', async () => {
     const { default: worker } = await import('../src/index.js');
 
     const body = new URLSearchParams({
@@ -130,13 +129,14 @@ describe('worker routing', () => {
     });
     const env = {
       SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null), delete: vi.fn() },
-      TWILIO_ACCOUNT_SID: 'sid',
-      TWILIO_AUTH_TOKEN: 'token',
       SUPABASE_URL: 'https://proj.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'key',
     };
     const res = await worker.fetch(req, env, {});
     expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('text/xml');
+    const text = await res.text();
+    expect(text).toContain('<Message>');
     expect(env.SESSIONS.put).toHaveBeenCalledWith(
       expect.stringMatching(/^[a-f0-9]{64}$/),
       expect.stringContaining('-24.1857'),

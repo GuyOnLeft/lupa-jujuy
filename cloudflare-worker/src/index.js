@@ -1,7 +1,15 @@
-import { parseTwilioBody, parseMapsUrl, hashSender, twilioReply, MSG } from './bot.js';
+import { parseTwilioBody, parseMapsUrl, hashSender, MSG } from './bot.js';
 import { insertReport, fetchPending, updateStatus, uploadPhoto } from './supabase.js';
 
 const ALLOWED_ORIGIN = 'https://guyonleft.github.io';
+
+function twiml(message) {
+  const escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escaped}</Message></Response>`,
+    { status: 200, headers: { 'Content-Type': 'text/xml' } }
+  );
+}
 
 function corsHeaders(origin) {
   if (origin !== ALLOWED_ORIGIN) return {};
@@ -30,12 +38,10 @@ async function handleWebhook(request, env) {
       JSON.stringify({ lat: msg.lat, lng: msg.lng }),
       { expirationTtl: 300 }
     );
-    await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.gotLoc);
-    return new Response('OK', { status: 200 });
+    return twiml(MSG.gotLoc);
   }
 
   if (msg.type === 'text') {
-    // Try to parse a Google Maps URL the user pasted
     let coords = parseMapsUrl(msg.body);
 
     // Short URLs (maps.app.goo.gl / goo.gl/maps) — follow redirect to get the real URL
@@ -55,28 +61,19 @@ async function handleWebhook(request, env) {
         JSON.stringify({ lat: coords.lat, lng: coords.lng }),
         { expirationTtl: 300 }
       );
-      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.gotLocMaps);
-      return new Response('OK', { status: 200 });
+      return twiml(MSG.gotLocMaps);
     }
 
-    // Looks like a maps URL but coords couldn't be parsed
     const looksLikeMapsLink = /google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/.test(msg.body);
-    if (looksLikeMapsLink) {
-      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.badUrl);
-      return new Response('OK', { status: 200 });
-    }
+    if (looksLikeMapsLink) return twiml(MSG.badUrl);
 
-    // Plain text — send intro
-    await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.intro);
-    return new Response('OK', { status: 200 });
+    return twiml(MSG.intro);
   }
 
   if (msg.type === 'media') {
     const sessionJson = await env.SESSIONS.get(senderHash);
-    if (!sessionJson) {
-      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.intro);
-      return new Response('OK', { status: 200 });
-    }
+    if (!sessionJson) return twiml(MSG.intro);
+
     const { lat, lng } = JSON.parse(sessionJson);
 
     try {
@@ -91,16 +88,14 @@ async function handleWebhook(request, env) {
       const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, msg.contentType);
       await insertReport(sb, { lat, lng, photoUrl, senderHash });
       await env.SESSIONS.delete(senderHash);
-      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.thanks);
+      return twiml(MSG.thanks);
     } catch (e) {
       console.error('submission error', e);
-      await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.error);
+      return twiml(MSG.error);
     }
-    return new Response('OK', { status: 200 });
   }
 
-  await twilioReply(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, msg.rawFrom, MSG.intro);
-  return new Response('OK', { status: 200 });
+  return twiml(MSG.intro);
 }
 
 async function handleAdminPending(request, env) {
