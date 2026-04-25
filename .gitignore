@@ -23,3 +23,6 @@ data/output/sv_20260416_192626.csv
 
 # OS
 .DS_Store
+
+# Git worktrees
+.worktrees/
