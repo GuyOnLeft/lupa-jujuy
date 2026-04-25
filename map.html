@@ -8,6 +8,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet-heat@0.2.0/dist/leaflet-heat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -465,6 +469,18 @@
     <label><input type="checkbox" id="f-satellite" checked> Satellite sites</label>
     <label><input type="checkbox" id="f-ground-truth" checked> Mariano (ground truth)</label>
     <label><input type="checkbox" id="f-community" checked> Reportes comunidad</label>
+    <button id="heat-btn" style="
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: transparent;
+  color: #E84040;
+  border: 1px solid #E84040;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+">🌡 Calor: OFF</button>
   </div>
 </div>
 
@@ -514,6 +530,9 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 // ── State ────────────────────────────────────────────
 let allSites = [];
 let markers = [];
+let communityCluster = L.markerClusterGroup({ maxClusterRadius: 60 });
+communityCluster.addTo(map);
+let heatLayer = null;
 
 // ── GitHub Pages mode ────────────────────────────────
 if (window.location.hostname.includes('github.io')) {
@@ -549,6 +568,27 @@ async function autoLoad() {
   if (anyLoaded) renderAll();
 }
 autoLoad();
+
+document.getElementById('heat-btn').addEventListener('click', () => {
+  const btn = document.getElementById('heat-btn');
+  if (heatLayer) {
+    map.removeLayer(heatLayer);
+    heatLayer = null;
+    btn.textContent = '🌡 Calor: OFF';
+    btn.style.color = '#E84040';
+    btn.style.borderColor = '#E84040';
+  } else {
+    const points = allSites
+      .filter(s => s.source === 'community' && s.latitude && s.longitude)
+      .map(s => [s.latitude, s.longitude, 1.0]);
+    if (points.length === 0) return;
+    heatLayer = L.heatLayer(points, { radius: 35, blur: 25, maxZoom: 17, gradient: { 0.4: '#F0B500', 0.7: '#E84040', 1.0: '#8B0000' } });
+    heatLayer.addTo(map);
+    btn.textContent = '🌡 Calor: ON';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#fff';
+  }
+});
 
 // ── Manual file load (local use) ─────────────────────
 document.getElementById('file-input').addEventListener('change', e => {
@@ -607,7 +647,10 @@ function sitePassesFilter(s, f) {
 }
 
 function renderAll() {
-  markers.forEach(m => map.removeLayer(m));
+  markers.forEach(m => {
+    if (!communityCluster.hasLayer(m)) map.removeLayer(m);
+  });
+  communityCluster.clearLayers();
   markers = [];
 
   const f = getFilters();
@@ -625,9 +668,9 @@ function renderAll() {
       });
       const marker = L.marker([s.latitude, s.longitude], { icon });
       marker.bindPopup(buildCommunityCard(s), { maxWidth: 300 });
-      marker.addTo(map);
+      communityCluster.addLayer(marker);
       markers.push(marker);
-      return; // skip existing pin logic
+      return;
     }
     const verdict = s.human_verdict;
     const sev = s.severity || 'low';
