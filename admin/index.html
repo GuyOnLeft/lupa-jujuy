@@ -60,6 +60,8 @@
       cursor: pointer;
     }
     #login button:hover { background: #ddd; }
+    #login button:disabled { opacity: 0.5; cursor: default; }
+    #login-error { color: #f55; font-size: 11px; margin-top: 0.5rem; min-height: 1em; }
 
     /* ── Queue (moderation list) ─────────────────────── */
     #queue { display: none; padding: 1.5rem; max-width: 700px; margin: 0 auto; }
@@ -124,6 +126,7 @@
       <h1>Lupa Admin ── Moderación</h1>
       <input type="password" id="pw-input" placeholder="Contraseña">
       <button id="pw-btn">Entrar</button>
+      <div id="login-error"></div>
     </div>
   </div>
 
@@ -196,27 +199,36 @@
     }
 
     document.getElementById('pw-btn').addEventListener('click', async () => {
-      token = document.getElementById('pw-input').value.trim();
-      if (!token) return;
-      document.getElementById('login-wrap').style.display = 'none';
-      document.getElementById('queue').style.display = 'block';
-      await loadPending();
-    });
-
-    async function loadPending() {
-      const status = document.getElementById('status');
-      const cards  = document.getElementById('cards');
-      status.textContent = t('loading');
-      cards.innerHTML = '';
+      const candidate = document.getElementById('pw-input').value.trim();
+      if (!candidate) return;
+      const btn = document.getElementById('pw-btn');
+      const err = document.getElementById('login-error');
+      btn.disabled = true;
+      err.textContent = '';
 
       const res = await fetch(`${WORKER_URL}/admin/pending`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { 'Authorization': `Bearer ${candidate}` },
       });
 
-      if (res.status === 401) { status.textContent = t('wrongPw'); return; }
-      if (!res.ok) { status.textContent = `Error ${res.status}`; return; }
+      btn.disabled = false;
+      if (res.status === 401) {
+        err.textContent = t('wrongPw');
+        document.getElementById('pw-input').select();
+        return;
+      }
+      if (!res.ok) { err.textContent = `Error ${res.status}`; return; }
 
+      token = candidate;
+      document.getElementById('login-wrap').style.display = 'none';
+      document.getElementById('queue').style.display = 'block';
       const rows = await res.json();
+      renderQueue(rows);
+    });
+
+    function renderQueue(rows) {
+      const status = document.getElementById('status');
+      const cards  = document.getElementById('cards');
+      cards.innerHTML = '';
       status.textContent = rows.length === 0 ? t('none') : t('pending', rows.length);
 
       rows.forEach(row => {
