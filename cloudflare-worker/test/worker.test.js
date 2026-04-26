@@ -238,6 +238,65 @@ describe('worker routing', () => {
     expect(text).toContain('1️⃣');
   });
 
+  it('POST /webhook sets flow=report on "1" response with no session', async () => {
+    vi.resetModules();
+    const { default: worker } = await import('../src/index.js');
+    const authToken = 'test-token';
+    const url = 'https://worker.example/webhook';
+    const body = new URLSearchParams({ From: 'whatsapp:+54911', Body: '1', MessageType: 'text' });
+    const bodyStr = body.toString();
+    const sig = await twilioSig(url, bodyStr, authToken);
+    const req = new Request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Twilio-Signature': sig },
+      body: bodyStr,
+    });
+    const sessionPut = vi.fn().mockResolvedValue(null);
+    const env = {
+      TWILIO_AUTH_TOKEN: authToken,
+      SESSIONS: { get: vi.fn().mockResolvedValue(null), put: sessionPut },
+    };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('<Message>');
+    // Session saved with flow: report
+    expect(sessionPut).toHaveBeenCalledWith(
+      expect.any(String),
+      JSON.stringify({ flow: 'report' }),
+      { expirationTtl: 300 }
+    );
+  });
+
+  it('POST /webhook returns menu when media arrives with no session', async () => {
+    vi.resetModules();
+    const { default: worker } = await import('../src/index.js');
+    const authToken = 'test-token';
+    const url = 'https://worker.example/webhook';
+    const body = new URLSearchParams({
+      From: 'whatsapp:+54911',
+      MessageType: 'image',
+      NumMedia: '1',
+      MediaUrl0: 'https://api.twilio.com/media/xyz',
+      MediaContentType0: 'image/jpeg',
+    });
+    const bodyStr = body.toString();
+    const sig = await twilioSig(url, bodyStr, authToken);
+    const req = new Request(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Twilio-Signature': sig },
+      body: bodyStr,
+    });
+    const env = {
+      TWILIO_AUTH_TOKEN: authToken,
+      SESSIONS: { get: vi.fn().mockResolvedValue(null), put: vi.fn().mockResolvedValue(null) },
+    };
+    const res = await worker.fetch(req, env, {});
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('1️⃣');
+  });
+
   it('POST /submit returns 400 without lat/lng', async () => {
     vi.resetModules();
     const { default: worker } = await import('../src/index.js');
