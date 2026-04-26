@@ -509,6 +509,8 @@
 
     #legend { bottom: 16px; left: 8px; padding: 8px 12px; }
     #filter-bar { bottom: 16px; right: 8px; padding: 8px 12px; }
+    #wa-btn  { bottom: 170px; }
+    #submit-btn { bottom: 110px; }
   }
 </style>
 </head>
@@ -615,7 +617,7 @@
     <input type="file" id="contest-photo" accept="image/*">
     <div class="modal-actions">
       <button class="btn-cancel" id="contest-cancel">Cancelar</button>
-      <button class="btn-primary" id="contest-confirm">Enviar</button>
+      <button class="btn-primary" id="contest-confirm" disabled>Enviar</button>
     </div>
     <div class="modal-msg" id="contest-msg"></div>
   </div>
@@ -725,16 +727,20 @@ async function autoLoad() {
       anyLoaded = true;
     } catch(e) { /* local file:// or missing — skip */ }
   }
-  if (anyLoaded) renderAll();
+  if (anyLoaded) {
+    await loadRemovedSites();
+    renderAll();
+  }
 }
-autoLoad();
 async function loadRemovedSites() {
   try {
     const res = await fetch(REMOVED_SITES_FILE);
     if (res.ok) removedSites = await res.json();
-  } catch (_) { /* missing on local — ok */ }
+  } catch (e) {
+    if (e instanceof SyntaxError) console.warn('removed_sites.json is malformed', e);
+  }
 }
-loadRemovedSites();
+autoLoad();
 
 document.getElementById('timeline-close').addEventListener('click', () => {
   document.getElementById('timeline-panel').style.display = 'none';
@@ -1240,13 +1246,17 @@ function openContestModal(lat, lng) {
   document.getElementById('contest-coord').textContent =
     `Ubicación: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   document.getElementById('contest-photo').value = '';
-  document.getElementById('contest-confirm').disabled = false;
+  document.getElementById('contest-confirm').disabled = true;
   document.getElementById('contest-msg').textContent = '';
   document.getElementById('contest-modal').classList.add('open');
 }
 
 document.getElementById('contest-cancel').addEventListener('click', () => {
   document.getElementById('contest-modal').classList.remove('open');
+});
+document.getElementById('contest-photo').addEventListener('change', () => {
+  document.getElementById('contest-confirm').disabled =
+    document.getElementById('contest-photo').files.length === 0;
 });
 
 document.getElementById('contest-confirm').addEventListener('click', async () => {
