@@ -632,7 +632,7 @@
 </div>
 
 <div id="map">
-  <button id="lang-btn" onclick="toggleLang()">🇦🇷 ES</button>
+  <button id="lang-btn" onclick="toggleLang()">🇦🇷</button>
 </div>
 
 <div id="legend">
@@ -1288,7 +1288,7 @@ function applyLang() {
   const t = STRINGS[lang];
   document.getElementById('header-sub').textContent = t.sub;
   document.getElementById('load-label').textContent = t.loadBtn;
-  document.getElementById('lang-btn').textContent = lang === 'es' ? '🇦🇷 ES' : '🇺🇸 EN';
+  document.getElementById('lang-btn').textContent = lang === 'es' ? '🇦🇷' : '🇺🇸';
 
   // Filter labels
   const labels = {
