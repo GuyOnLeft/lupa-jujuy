@@ -652,7 +652,7 @@
   </div>
   <div class="panel-body">
     <label><input type="checkbox" id="f-confirmed" checked> Confirmado</label>
-    <label><input type="checkbox" id="f-detected" checked> Detectado (IA)</label>
+    <label><input type="checkbox" id="f-detected"> Detectado (IA)</label>
     <input type="checkbox" id="f-borderline" style="display:none">
     <label><input type="checkbox" id="f-community" checked> Comunidad</label>
     <button id="heat-btn" style="
@@ -830,6 +830,7 @@ async function autoLoad() {
   if (anyLoaded) {
     await loadRemovedSites();
     renderAll();
+    enableHeat();
   }
 }
 async function loadRemovedSites() {
@@ -846,6 +847,20 @@ document.getElementById('timeline-close').addEventListener('click', () => {
   document.getElementById('timeline-panel').style.display = 'none';
 });
 
+function enableHeat() {
+  const btn = document.getElementById('heat-btn');
+  if (heatLayer) return;
+  const points = allSites
+    .filter(s => s.source === 'community' && s.latitude && s.longitude)
+    .map(s => [s.latitude, s.longitude, 1.0]);
+  if (points.length === 0) return;
+  heatLayer = L.heatLayer(points, { radius: 35, blur: 25, maxZoom: 17, gradient: { 0.4: '#F0B500', 0.7: '#E84040', 1.0: '#8B0000' } });
+  heatLayer.addTo(map);
+  btn.textContent = '🌡 Calor: ON';
+  btn.style.color = '#fff';
+  btn.style.borderColor = '#fff';
+}
+
 document.getElementById('heat-btn').addEventListener('click', () => {
   const btn = document.getElementById('heat-btn');
   if (heatLayer) {
@@ -855,15 +870,7 @@ document.getElementById('heat-btn').addEventListener('click', () => {
     btn.style.color = '#E84040';
     btn.style.borderColor = '#E84040';
   } else {
-    const points = allSites
-      .filter(s => s.source === 'community' && s.latitude && s.longitude)
-      .map(s => [s.latitude, s.longitude, 1.0]);
-    if (points.length === 0) return;
-    heatLayer = L.heatLayer(points, { radius: 35, blur: 25, maxZoom: 17, gradient: { 0.4: '#F0B500', 0.7: '#E84040', 1.0: '#8B0000' } });
-    heatLayer.addTo(map);
-    btn.textContent = '🌡 Calor: ON';
-    btn.style.color = '#fff';
-    btn.style.borderColor = '#fff';
+    enableHeat();
   }
 });
 
