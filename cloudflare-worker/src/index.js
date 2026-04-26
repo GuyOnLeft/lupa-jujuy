@@ -151,7 +151,12 @@ async function handleWebhook(request, env) {
       return twiml(MSG.menu);
     }
 
-    const { flow, lat, lng, thanked } = session;
+    const { flow, lat, lng, thanked, photoCount = 0 } = session;
+    const MAX_PHOTOS = 10;
+
+    if (photoCount >= MAX_PHOTOS) {
+      return twimlSilent();
+    }
 
     // Rate limit contestations: 1 per sender per site per 24h
     if (flow === 'contest') {
@@ -184,7 +189,8 @@ async function handleWebhook(request, env) {
       return twiml(MSG.error);
     }
 
-    await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
+    const newCount = photoCount + 1;
+    await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true, photoCount: newCount }), { expirationTtl: 120 });
     return thanked ? twimlSilent() : twiml(flow === 'contest' ? MSG.contestThanks : MSG.thanks);
   }
 
