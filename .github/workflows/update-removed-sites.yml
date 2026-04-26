@@ -12,6 +12,10 @@ on:
         description: 'Longitude of removed site'
         required: true
 
+concurrency:
+  group: update-removed-sites
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
