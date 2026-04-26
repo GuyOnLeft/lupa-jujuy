@@ -131,6 +131,53 @@
     .btn-approve:disabled, .btn-reject:disabled { opacity: 0.3; cursor: default; }
     a { color: #fff; }
 
+    /* ── Lightbox ────────────────────────────────────── */
+    #lightbox {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      padding: 1.5rem;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img {
+      max-width: 100%;
+      max-height: calc(100vh - 120px);
+      object-fit: contain;
+      border: 2px solid #fff;
+    }
+    #lightbox-actions { display: flex; gap: 0.75rem; }
+    #lightbox-approve {
+      background: #fff; color: #111;
+      border: 2px solid #fff;
+      padding: 10px 28px; font-family: inherit;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer;
+    }
+    #lightbox-approve:hover { background: #ddd; }
+    #lightbox-reject {
+      background: transparent; color: #fff;
+      border: 2px solid #fff;
+      padding: 10px 28px; font-family: inherit;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      cursor: pointer;
+    }
+    #lightbox-reject:hover { background: #222; }
+    #lightbox-close {
+      position: absolute; top: 1rem; right: 1rem;
+      background: transparent; color: #fff;
+      border: none; font-size: 22px; cursor: pointer;
+      line-height: 1; padding: 4px 8px;
+    }
+    #lightbox-close:hover { color: #ccc; }
+    .card img { cursor: zoom-in; }
+
     /* ── Language toggle ─────────────────────────────── */
     #lang-toggle {
       position: fixed; top: 1rem; right: 1rem;
@@ -167,6 +214,15 @@
     <div class="tab-pane" id="pane-contests">
       <div id="status-contest">Cargando...</div>
       <div id="cards-contest"></div>
+    </div>
+  </div>
+
+  <div id="lightbox">
+    <button id="lightbox-close">✕</button>
+    <img id="lightbox-img" src="" alt="">
+    <div id="lightbox-actions">
+      <button id="lightbox-approve">✓ Aprobar</button>
+      <button id="lightbox-reject">✗ Rechazar</button>
     </div>
   </div>
 
@@ -312,9 +368,7 @@
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <a href="${esc(row.photo_url)}" target="_blank">
-            <img src="${esc(row.photo_url)}" alt="report photo">
-          </a>
+          <img src="${esc(row.photo_url)}" alt="report photo" onclick="openLightbox('${esc(row.photo_url)}','${esc(row.id)}','report')">
           <div class="card-meta">
             <div class="coords">${esc(row.lat.toFixed(5))}, ${esc(row.lng.toFixed(5))}</div>
             <div class="date">${esc(date)}</div>
@@ -368,9 +422,7 @@
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
-          <a href="${esc(row.photo_url)}" target="_blank">
-            <img src="${esc(row.photo_url)}" alt="contestation photo">
-          </a>
+          <img src="${esc(row.photo_url)}" alt="contestation photo" onclick="openLightbox('${esc(row.photo_url)}','${esc(row.id)}','contest')">
           <div class="card-meta">
             <div class="coords">${esc(row.lat.toFixed(5))}, ${esc(row.lng.toFixed(5))}</div>
             <div class="date">${esc(date)}</div>
@@ -391,6 +443,71 @@
         btn.addEventListener('click', () => doContestAction(btn.dataset.id, 'reject', btn));
       });
     }
+
+    // ── Lightbox ──────────────────────────────────────
+    const lightbox        = document.getElementById('lightbox');
+    const lightboxImg     = document.getElementById('lightbox-img');
+    const lightboxApprove = document.getElementById('lightbox-approve');
+    const lightboxReject  = document.getElementById('lightbox-reject');
+
+    function openLightbox(photoUrl, id, type) {
+      lightboxImg.src = photoUrl;
+      lightbox.dataset.id   = id;
+      lightbox.dataset.type = type;
+      lightboxApprove.textContent = type === 'contest' ? t('approveContest') : t('approve');
+      lightboxReject.textContent  = type === 'contest' ? t('rejectContest')  : t('reject');
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+      lightboxImg.src = '';
+    }
+
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+    async function lightboxAction(action) {
+      const { id, type } = lightbox.dataset;
+      lightboxApprove.disabled = true;
+      lightboxReject.disabled  = true;
+      const endpoint = type === 'contest'
+        ? `${WORKER_URL}/admin/${action}-contest/${id}`
+        : `${WORKER_URL}/admin/${action}/${id}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        closeLightbox();
+        // Mirror the card removal from the list
+        const selector = type === 'contest' ? '#cards-contest' : '#cards';
+        const cardBtn = document.querySelector(`${selector} [data-id="${id}"]`);
+        if (cardBtn) {
+          const card = cardBtn.closest('.card');
+          card.style.transition = 'opacity 0.3s';
+          card.style.opacity = '0';
+          setTimeout(() => {
+            card.remove();
+            const remaining = document.querySelectorAll(`${selector} .card`).length;
+            const statusEl = type === 'contest'
+              ? document.getElementById('status-contest')
+              : document.getElementById('status');
+            statusEl.textContent = remaining === 0
+              ? t(type === 'contest' ? 'noneContest' : 'none')
+              : t(type === 'contest' ? 'pendingContest' : 'pending', remaining);
+          }, 300);
+        }
+      } else {
+        alert(`Error ${res.status}`);
+      }
+      lightboxApprove.disabled = false;
+      lightboxReject.disabled  = false;
+    }
+
+    lightboxApprove.addEventListener('click', () => lightboxAction('approve'));
+    lightboxReject.addEventListener('click',  () => lightboxAction('reject'));
 
     async function doContestAction(id, action, btn) {
       const card = btn.closest('.card');
