@@ -796,6 +796,14 @@ async function autoLoad() {
       anyLoaded = true;
     } catch(e) { /* local file:// or missing — skip */ }
   }
+  try {
+    const res = await fetch(`${WORKER_URL}/reports`);
+    if (res.ok) {
+      const community = await res.json();
+      community.forEach(s => allSites.push(s));
+      anyLoaded = true;
+    }
+  } catch(e) { /* worker unreachable — skip */ }
   if (anyLoaded) {
     await loadRemovedSites();
     renderAll();
