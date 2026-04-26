@@ -121,7 +121,13 @@ async function handleWebhook(request, env) {
     }
 
     const looksLikeMapsLink = /google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/.test(msg.body);
-    if (looksLikeMapsLink) return twiml(MSG.badUrl);
+    if (looksLikeMapsLink) {
+      if (!session?.flow) {
+        await env.SESSIONS.put(senderHash, JSON.stringify({ menuSent: true }), { expirationTtl: 300 });
+        return twiml(MSG.menu);
+      }
+      return twiml(MSG.badUrl);
+    }
 
     // Menu selection
     const trimmed = msg.body.trim();
@@ -413,12 +419,14 @@ export default {
       return handleAdminAction(request, env, rejectMatch[1], 'rejected');
     }
     const approveContestMatch = pathname.match(/^\/admin\/approve-contest\/([^/]+)$/);
-    if (method === 'POST' && approveContestMatch) {
-      return handleAdminContestAction(request, env, approveContestMatch[1], 'approved');
+    if (approveContestMatch) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin') || '', true) });
+      if (method === 'POST') return handleAdminContestAction(request, env, approveContestMatch[1], 'approved');
     }
     const rejectContestMatch = pathname.match(/^\/admin\/reject-contest\/([^/]+)$/);
-    if (method === 'POST' && rejectContestMatch) {
-      return handleAdminContestAction(request, env, rejectContestMatch[1], 'rejected');
+    if (rejectContestMatch) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin') || '', true) });
+      if (method === 'POST') return handleAdminContestAction(request, env, rejectContestMatch[1], 'rejected');
     }
 
     return new Response('Not found', { status: 404 });
