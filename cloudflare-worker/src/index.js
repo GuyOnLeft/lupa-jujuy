@@ -65,7 +65,7 @@ async function checkRateLimit(kv, key, ttlSeconds) {
   return true;
 }
 
-async function handleWebhook(request, env) {
+async function handleWebhook(request, env, ctx) {
   const text = await request.text();
 
   if (!await isTwilioRequest(request, text, env.TWILIO_AUTH_TOKEN)) {
@@ -169,28 +169,30 @@ async function handleWebhook(request, env) {
       }
     }
 
-    try {
-      const mediaRes = await fetch(msg.mediaUrl, {
-        headers: {
-          'Authorization': 'Basic ' + btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`),
-        },
-      });
-      const photoBuffer = await mediaRes.arrayBuffer();
-      const tempId = crypto.randomUUID();
-      const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, msg.contentType);
-
-      if (flow === 'contest') {
-        await insertContestation(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
-      } else {
-        await insertReport(sb, { lat, lng, photoUrl, senderHash, source: 'community' });
-      }
-    } catch (e) {
-      console.error('submission error', e);
-      return twiml(MSG.error);
-    }
-
     const newCount = photoCount + 1;
     await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true, photoCount: newCount }), { expirationTtl: 120 });
+
+    ctx.waitUntil((async () => {
+      try {
+        const mediaRes = await fetch(msg.mediaUrl, {
+          headers: {
+            'Authorization': 'Basic ' + btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`),
+          },
+        });
+        const photoBuffer = await mediaRes.arrayBuffer();
+        const tempId = crypto.randomUUID();
+        const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, msg.contentType);
+
+        if (flow === 'contest') {
+          await insertContestation(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
+        } else {
+          await insertReport(sb, { lat, lng, photoUrl, senderHash, source: 'community' });
+        }
+      } catch (e) {
+        console.error('submission error', e);
+      }
+    })());
+
     return thanked ? twimlSilent() : twiml(flow === 'contest' ? MSG.contestThanks : MSG.thanks);
   }
 
@@ -397,7 +399,7 @@ export default {
     const method = request.method;
 
     if (method === 'POST' && pathname === '/webhook') {
-      return handleWebhook(request, env);
+      return handleWebhook(request, env, ctx);
     }
     if ((method === 'POST' || method === 'OPTIONS') && pathname === '/submit') {
       return handleWebSubmit(request, env);
