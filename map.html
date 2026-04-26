@@ -574,8 +574,9 @@
   /* ── Mobile ─────────────────────────────────────── */
   @media (max-width: 600px) {
     header { padding: 8px 12px; align-items: center; }
+    header > div:first-child { display: flex; align-items: center; }
     header h1 { font-size: 13px; letter-spacing: 0.04em; white-space: nowrap; }
-    header .sub { font-size: 10px; max-width: 52vw; line-height: 1.3; }
+    header .sub { display: none; }
     .load-btn { font-size: 11px; padding: 6px 10px; }
 
     #load-label { display: none; }
@@ -1028,8 +1029,8 @@ function buildCommunityCard(group, lat, lng) {
       ${photosHtml}
       <div class="card-body">
         <div class="card-tags">
-          <span class="tag">COMUNIDAD</span>
-          ${count > 1 ? `<span class="tag">${count} FOTOS</span>` : ''}
+          <span class="tag">${t.tagCommunity}</span>
+          ${count > 1 ? `<span class="tag">${count} ${t.tagPhotos}</span>` : ''}
         </div>
         ${dateLabel ? `<div style="font-size:11px;color:#666;margin-bottom:8px;">${esc(dateLabel)}</div>` : ''}
         <div class="card-footer">
@@ -1053,7 +1054,7 @@ function buildCard(s) {
   const verdictHtml = s.source === 'ground_truth'
     ? `<span class="tag high" style="text-transform:uppercase;">${esc(t.groundTruthBadge)}</span>`
     : verdict && verdict !== 'pending' && verdict !== 'no_image'
-      ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${esc(verdict)}</span>`
+      ? `<span class="tag ${verdict === 'confirmed' ? 'high' : verdict === 'rejected' ? 'low' : 'medium'}" style="text-transform:uppercase;">★ ${t.verdictLabel[verdict] || esc(verdict).toUpperCase()}</span>`
       : '';
 
   // Pick best image — local file, or placeholder with Street View link
@@ -1094,7 +1095,7 @@ function buildCard(s) {
 
   const historyHtml = s.first_detected_year
     ? `<div class="card-history">
-        First detected: <b>${s.first_detected_year}</b>
+        ${t.firstDetected}: <b>${s.first_detected_year}</b>
         ${s.yearly_presence?.length > 0
           ? `<div class="year-list">${s.yearly_presence.map(y => `<span class="yr">${y}</span>`).join('')}</div>`
           : ''}
@@ -1107,9 +1108,9 @@ function buildCard(s) {
       <div class="card-body">
         <div class="card-tags">
           ${verdictHtml}
-          <span class="tag ${esc(sev)}">${esc(sev).toUpperCase()}</span>
+          <span class="tag ${esc(sev)}">${t.sevLabel[sev] || esc(sev).toUpperCase()}</span>
           <span class="tag">${esc(s.waste_type || 'mixed').toUpperCase()}</span>
-          <span class="tag source">${esc(src).toUpperCase()}</span>
+          <span class="tag source">${t.srcLabel[src] || esc(src).toUpperCase()}</span>
           ${s.nbi_label ? `<span class="tag nbi-${esc(s.nbi_label).replace(' ','-')}">NBI ${esc(s.nbi_label).toUpperCase()}</span>` : ''}
         </div>
         ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${esc(s.name)}</div>` : ''}
@@ -1189,26 +1190,6 @@ function openTimeline(lat, lng) {
   document.getElementById('timeline-panel').style.display = 'block';
 }
 
-function buildCommunityCard(s) {
-  const date = new Date(s.submitted_at).toLocaleDateString('es-AR', {
-    day: 'numeric', month: 'long', year: 'numeric'
-  });
-  const mapsUrl = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
-  return `
-    <div class="card">
-      <img class="card-img" src="${esc(s.photo_url)}" alt="Foto del basural"
-           onerror="this.style.display='none'">
-      <div class="card-body">
-        <div class="card-tags">
-          <span class="tag" style="background:#F0B5001a;color:#F0B500;border:1px solid #F0B50044;">COMUNIDAD</span>
-        </div>
-        <div class="card-desc" style="margin-top:8px;">${esc(date)}</div>
-        <div style="margin-top:8px;">
-          <a href="${esc(mapsUrl)}" target="_blank" style="font-size:11px;">Ver en Maps →</a>
-        </div>
-      </div>
-    </div>`;
-}
 
 // ── Language toggle ───────────────────────────────────
 let lang = 'es';
@@ -1242,6 +1223,12 @@ const STRINGS = {
     contestBtn: 'This place is clean',
     communityReportsLabel: 'community report',
     communityReportsLabelPlural: 'community reports',
+    firstDetected: 'First detected',
+    tagCommunity: 'COMMUNITY',
+    tagPhotos: 'PHOTOS',
+    sevLabel: { high: 'HIGH', medium: 'MEDIUM', low: 'LOW', unknown: 'UNK.' },
+    srcLabel: { satellite: 'SATELLITE', streetview: 'STREET VIEW', ground_truth: 'GROUND TRUTH', community: 'COMMUNITY' },
+    verdictLabel: { confirmed: 'CONFIRMED', borderline: 'BORDERLINE', rejected: 'REJECTED' },
     legConfirmed: 'Confirmed',
     legDetected: 'Detected (AI)',
     legBorderline: 'Borderline',
@@ -1276,6 +1263,12 @@ const STRINGS = {
     contestBtn: 'Este lugar está limpio',
     communityReportsLabel: 'reporte de la comunidad',
     communityReportsLabelPlural: 'reportes de la comunidad',
+    firstDetected: 'Primera detección',
+    tagCommunity: 'COMUNIDAD',
+    tagPhotos: 'FOTOS',
+    sevLabel: { high: 'ALTO', medium: 'MEDIO', low: 'BAJO', unknown: 'DESC.' },
+    srcLabel: { satellite: 'SATÉLITE', streetview: 'STREET VIEW', ground_truth: 'DATO REAL', community: 'COMUNIDAD' },
+    verdictLabel: { confirmed: 'CONFIRMADO', borderline: 'DUDOSO', rejected: 'RECHAZADO' },
     legConfirmed: 'Confirmado',
     legDetected: 'Detectado (IA)',
     legBorderline: 'Dudoso',
