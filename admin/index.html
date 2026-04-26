@@ -262,6 +262,8 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('pw-btn').click(); });
+
     document.getElementById('pw-btn').addEventListener('click', async () => {
       const candidate = document.getElementById('pw-input').value.trim();
       if (!candidate) return;
