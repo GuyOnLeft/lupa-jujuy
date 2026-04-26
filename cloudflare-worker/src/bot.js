@@ -72,7 +72,7 @@ export async function twilioReply(accountSid, authToken, to, body) {
 }
 
 export const MSG = {
-  menu:          '👋 ¡Hola! ¿Qué querés reportar?\n\n1️⃣ Hay un basural\n2️⃣ Este lugar está limpio',
+  menu:          '👋 ¡Hola! ¿Qué querés reportar?\n\n1️⃣ Hay un basural\n2️⃣ Quiero contestar que un lugar está limpio',
   askLocReport:  '📍 ¿Estás en el lugar?\n\n• *Si estás ahí*: tocá el + → Ubicación y mandala.\n• *Si ya te fuiste*: abrí Google Maps, poné un pin y pegá el link acá.',
   askLocContest: '📍 ¿Dónde está el lugar que querés contestar? Mandá tu ubicación o un link de Google Maps.',
   gotLoc:        '📍 Ubicación recibida. Ahora mandá una o más fotos 📷',
