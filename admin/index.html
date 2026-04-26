@@ -65,6 +65,30 @@
 
     /* ── Queue (moderation list) ─────────────────────── */
     #queue { display: none; padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 1.25rem;
+      border-bottom: 2px solid #333;
+    }
+    .tab-btn {
+      background: transparent;
+      color: #666;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      padding: 6px 16px;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .tab-btn.active { color: #fff; border-bottom-color: #fff; }
+    .tab-btn:hover:not(.active) { color: #aaa; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
     #queue h1 {
       font-size: 10px;
       font-weight: 700;
@@ -131,9 +155,19 @@
   </div>
 
   <div id="queue">
-    <h1>Lupa Admin ── Reportes pendientes</h1>
-    <div id="status">Cargando...</div>
-    <div id="cards"></div>
+    <h1>Lupa Admin ── Moderación</h1>
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-reports" onclick="switchTab('reports')">Reportes</button>
+      <button class="tab-btn" id="tab-contests" onclick="switchTab('contestaciones')">Contestaciones</button>
+    </div>
+    <div class="tab-pane active" id="pane-reports">
+      <div id="status">Cargando...</div>
+      <div id="cards"></div>
+    </div>
+    <div class="tab-pane" id="pane-contests">
+      <div id="status-contest">Cargando...</div>
+      <div id="cards-contest"></div>
+    </div>
   </div>
 
   <script>
@@ -152,6 +186,12 @@
         approve:      '✓ Aprobar',
         reject:       '✗ Rechazar',
         langBtn:      'EN',
+        contestTab:     'Contestaciones',
+        reportTab:      'Reportes',
+        approveContest: '✓ Aprobar',
+        rejectContest:  '✗ Rechazar',
+        noneContest:    'No hay contestaciones pendientes.',
+        pendingContest: n => `${n} contestación(es) pendiente(s)`,
       },
       en: {
         loginTitle:   'Lupa Admin ── Moderation',
@@ -165,11 +205,19 @@
         approve:      '✓ Approve',
         reject:       '✗ Reject',
         langBtn:      'ES',
+        contestTab:     'Contestations',
+        reportTab:      'Reports',
+        approveContest: '✓ Approve',
+        rejectContest:  '✗ Reject',
+        noneContest:    'No pending contestations.',
+        pendingContest: n => `${n} pending contestation(s)`,
       },
     };
 
     let lang = localStorage.getItem('admin-lang') || 'es';
     let token = '';
+    let reportRows = [];
+    let contestationRows = [];
 
     function t(key, ...args) {
       const val = T[lang][key];
@@ -182,14 +230,30 @@
       document.getElementById('pw-input').placeholder   = t('placeholder');
       document.getElementById('pw-btn').textContent     = t('enter');
       document.querySelector('#queue h1').textContent   = t('queueTitle');
-      document.querySelectorAll('.btn-approve').forEach(b => b.textContent = t('approve'));
-      document.querySelectorAll('.btn-reject').forEach(b  => b.textContent = t('reject'));
+      document.querySelectorAll('#cards .btn-approve').forEach(b => b.textContent = t('approve'));
+      document.querySelectorAll('#cards .btn-reject').forEach(b => b.textContent = t('reject'));
+      document.querySelectorAll('#cards-contest .btn-approve').forEach(b => b.textContent = t('approveContest'));
+      document.querySelectorAll('#cards-contest .btn-reject').forEach(b => b.textContent = t('rejectContest'));
+      document.getElementById('tab-reports').textContent  = t('reportTab');
+      document.getElementById('tab-contests').textContent = t('contestTab');
+    }
+
+    function switchTab(tab) {
+      const isReports = tab === 'reports';
+      document.getElementById('pane-reports').classList.toggle('active', isReports);
+      document.getElementById('pane-contests').classList.toggle('active', !isReports);
+      document.getElementById('tab-reports').classList.toggle('active', isReports);
+      document.getElementById('tab-contests').classList.toggle('active', !isReports);
     }
 
     document.getElementById('lang-toggle').addEventListener('click', () => {
       lang = lang === 'es' ? 'en' : 'es';
       localStorage.setItem('admin-lang', lang);
       applyLang();
+      if (token) {
+        renderQueue(reportRows);
+        renderContestations(contestationRows);
+      }
     });
 
     applyLang();
@@ -221,8 +285,18 @@
       token = candidate;
       document.getElementById('login-wrap').style.display = 'none';
       document.getElementById('queue').style.display = 'block';
-      const rows = await res.json();
-      renderQueue(rows);
+      reportRows = await res.json();
+      renderQueue(reportRows);
+      // Also load contestations
+      const resContest = await fetch(`${WORKER_URL}/admin/contestations`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (resContest.ok) {
+        contestationRows = await resContest.json();
+        renderContestations(contestationRows);
+      } else {
+        document.getElementById('status-contest').textContent = `Error ${resContest.status}`;
+      }
     });
 
     function renderQueue(rows) {
@@ -271,9 +345,66 @@
         card.style.opacity = '0';
         setTimeout(() => {
           card.remove();
-          const remaining = document.querySelectorAll('.card').length;
+          const remaining = document.querySelectorAll('#cards .card').length;
           document.getElementById('status').textContent =
             remaining === 0 ? t('none') : t('pending', remaining);
+        }, 300);
+      } else {
+        alert(`Error ${res.status}`);
+        card.querySelectorAll('button').forEach(b => b.disabled = false);
+      }
+    }
+
+    function renderContestations(rows) {
+      const status = document.getElementById('status-contest');
+      const cards  = document.getElementById('cards-contest');
+      cards.innerHTML = '';
+      status.textContent = rows.length === 0 ? t('noneContest') : t('pendingContest', rows.length);
+
+      rows.forEach(row => {
+        const date = new Date(row.submitted_at).toLocaleString(lang === 'es' ? 'es-AR' : 'en-US');
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <a href="${esc(row.photo_url)}" target="_blank">
+            <img src="${esc(row.photo_url)}" alt="contestation photo">
+          </a>
+          <div class="card-meta">
+            <div class="coords">${esc(row.lat.toFixed(5))}, ${esc(row.lng.toFixed(5))}</div>
+            <div class="date">${esc(date)}</div>
+            <div class="date" style="color:#aaa;font-size:10px;">src: ${esc(row.source || 'whatsapp')}</div>
+          </div>
+          <div class="actions">
+            <button class="btn-approve" data-id="${esc(row.id)}">${t('approveContest')}</button>
+            <button class="btn-reject"  data-id="${esc(row.id)}">${t('rejectContest')}</button>
+          </div>
+        `;
+        cards.appendChild(card);
+      });
+
+      cards.querySelectorAll('.btn-approve').forEach(btn => {
+        btn.addEventListener('click', () => doContestAction(btn.dataset.id, 'approve', btn));
+      });
+      cards.querySelectorAll('.btn-reject').forEach(btn => {
+        btn.addEventListener('click', () => doContestAction(btn.dataset.id, 'reject', btn));
+      });
+    }
+
+    async function doContestAction(id, action, btn) {
+      const card = btn.closest('.card');
+      card.querySelectorAll('button').forEach(b => b.disabled = true);
+      const res = await fetch(`${WORKER_URL}/admin/${action}-contest/${id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        card.style.transition = 'opacity 0.3s';
+        card.style.opacity = '0';
+        setTimeout(() => {
+          card.remove();
+          const remaining = document.querySelectorAll('#cards-contest .card').length;
+          document.getElementById('status-contest').textContent =
+            remaining === 0 ? t('noneContest') : t('pendingContest', remaining);
         }, 300);
       } else {
         alert(`Error ${res.status}`);

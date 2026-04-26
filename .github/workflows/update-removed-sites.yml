@@ -1,0 +1,51 @@
+name: Update removed_sites.json
+
+on:
+  repository_dispatch:
+    types: [update-removed-sites]
+  workflow_dispatch:
+    inputs:
+      lat:
+        description: 'Latitude of removed site'
+        required: true
+      lng:
+        description: 'Longitude of removed site'
+        required: true
+
+concurrency:
+  group: update-removed-sites
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Append removed site
+        env:
+          LAT: ${{ github.event.client_payload.lat || inputs.lat }}
+          LNG: ${{ github.event.client_payload.lng || inputs.lng }}
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          lat = float(os.environ['LAT'])
+          lng = float(os.environ['LNG'])
+          with open('data/output/removed_sites.json') as f:
+              sites = json.load(f)
+          entry = {'lat': lat, 'lng': lng}
+          if not any(abs(s['lat'] - lat) < 0.0001 and abs(s['lng'] - lng) < 0.0001 for s in sites):
+              sites.append(entry)
+          with open('data/output/removed_sites.json', 'w') as f:
+              json.dump(sites, f, indent=2)
+          EOF
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/output/removed_sites.json
+          git diff --staged --quiet || git commit -m "chore: mark site as removed [skip ci]"
+          git push

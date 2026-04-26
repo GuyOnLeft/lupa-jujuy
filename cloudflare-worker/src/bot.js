@@ -72,11 +72,14 @@ export async function twilioReply(accountSid, authToken, to, body) {
 }
 
 export const MSG = {
-  intro:      '👋 ¡Hola! Para reportar un basural, contanos: ¿estás en el lugar ahora mismo?\n\n📍 *Si estás ahí*: tocá el + → Ubicación y mandala.\n🗺 *Si ya te fuiste*: abrí Google Maps, poné un pin en el lugar y pegá el link acá.',
-  gotLoc:     '📍 Ubicación recibida. Ahora mandá la foto del basural 📷',
-  gotLocMaps: '🗺 Ubicación registrada. Ahora mandá la foto del basural 📷',
-  thanks:     '✅ ¡Gracias! Tu reporte está en revisión y va a aparecer en el mapa pronto. Podés verlo acá: https://guyonleft.github.io/lupa-jujuy/map.html',
-  timeout:    '¿Todavía estás ahí? Cuando puedas, mandá la foto del basural 📷',
-  badUrl:     '⚠️ No pude leer las coordenadas de ese link. Probá con "Compartir → Copiar enlace" en Google Maps y pegá el link acá.',
-  error:      'Hubo un problema al procesar tu reporte. Probá de nuevo en unos minutos.',
+  menu:          '👋 ¡Hola! ¿Qué querés reportar?\n\n1️⃣ Hay un basural\n2️⃣ Este lugar está limpio',
+  askLocReport:  '📍 ¿Estás en el lugar?\n\n• *Si estás ahí*: tocá el + → Ubicación y mandala.\n• *Si ya te fuiste*: abrí Google Maps, poné un pin y pegá el link acá.',
+  askLocContest: '📍 ¿Dónde está el lugar que querés contestar? Mandá tu ubicación o un link de Google Maps.',
+  gotLoc:        '📍 Ubicación recibida. Ahora mandá una foto 📷',
+  gotLocMaps:    '🗺 Ubicación registrada. Ahora mandá una foto 📷',
+  thanks:        '✅ ¡Gracias! Tu reporte está en revisión y va a aparecer en el mapa pronto. Podés verlo acá: https://guyonleft.github.io/lupa-jujuy/map.html',
+  contestThanks: '✅ ¡Gracias! Tu contestación está en revisión.',
+  timeout:       '¿Todavía estás ahí? Cuando puedas, mandá la foto 📷',
+  badUrl:        '⚠️ No pude leer las coordenadas de ese link. Probá con "Compartir → Copiar enlace" en Google Maps.',
+  error:         'Hubo un problema al procesar tu reporte. Probá de nuevo en unos minutos.',
 };

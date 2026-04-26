@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet-heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -386,6 +386,108 @@
   }
   #filter-bar input[type=checkbox] { cursor: pointer; width: 16px; height: 16px; }
 
+  /* ── Floating action buttons ────────────────────── */
+  #wa-btn, #submit-btn {
+    position: fixed;
+    right: 16px;
+    z-index: 1001;
+    border: 2px solid #111;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: 10px 16px;
+    box-shadow: 3px 3px 0 #111;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  #wa-btn {
+    bottom: 140px;
+    background: #111;
+    color: #fff;
+  }
+  #wa-btn:hover { background: #333; }
+  #submit-btn {
+    bottom: 80px;
+    background: #fff;
+    color: #111;
+  }
+  #submit-btn:hover { background: #f5f5f5; }
+
+  /* ── Submit / Contest modals ─────────────────────── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff;
+    border: 2px solid #111;
+    box-shadow: 5px 5px 0 #111;
+    padding: 1.5rem;
+    width: min(400px, calc(100vw - 2rem));
+    font-family: 'Space Mono', monospace;
+  }
+  .modal-box h2 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .modal-box .hint {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 1rem;
+  }
+  .modal-box .coord-display {
+    font-size: 11px;
+    color: #111;
+    margin-bottom: 0.75rem;
+  }
+  .modal-box input[type=file] {
+    width: 100%;
+    font-family: inherit;
+    font-size: 11px;
+    margin-bottom: 1rem;
+    border: 1px solid #111;
+    padding: 6px;
+  }
+  .modal-box .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .modal-box .btn-primary {
+    background: #111; color: #fff;
+    border: 2px solid #111;
+    padding: 6px 16px; font-size: 11px; font-weight: 700;
+    font-family: inherit; cursor: pointer; letter-spacing: 0.05em;
+  }
+  .modal-box .btn-primary:hover { background: #333; }
+  .modal-box .btn-primary:disabled { opacity: 0.4; cursor: default; }
+  .modal-box .btn-cancel {
+    background: transparent; color: #111;
+    border: 1px solid #111;
+    padding: 6px 12px; font-size: 11px;
+    font-family: inherit; cursor: pointer;
+  }
+  .modal-box .btn-cancel:hover { background: #f5f5f5; }
+  .modal-msg { font-size: 11px; margin-top: 0.5rem; min-height: 1em; }
+  .modal-msg.ok { color: #222; }
+  .modal-msg.err { color: #c00; }
+
   /* ── Mobile ─────────────────────────────────────── */
   @media (max-width: 600px) {
     header {
@@ -407,6 +509,8 @@
 
     #legend { bottom: 16px; left: 8px; padding: 8px 12px; }
     #filter-bar { bottom: 16px; right: 8px; padding: 8px 12px; }
+    #wa-btn  { bottom: 170px; }
+    #submit-btn { bottom: 110px; }
   }
 </style>
 </head>
@@ -455,6 +559,11 @@
   </div>
 </div>
 
+<a id="wa-btn" href="https://wa.me/14155238886?text=Quiero+reportar+un+basural" target="_blank" rel="noopener">
+  💬 WhatsApp
+</a>
+<button id="submit-btn">📍 Reportar</button>
+
 <div id="filter-bar">
   <div class="panel-header" onclick="togglePanel('filter-bar')">
     <div class="fb-title">Filter</div>
@@ -481,6 +590,36 @@
   cursor: pointer;
   letter-spacing: 0.05em;
 ">🌡 Calor: OFF</button>
+  </div>
+</div>
+
+<!-- Submit modal -->
+<div class="modal-overlay" id="submit-modal">
+  <div class="modal-box">
+    <h2>Reportar un basural</h2>
+    <p class="hint">Hacé clic en el mapa para marcar la ubicación, luego adjuntá una foto.</p>
+    <div class="coord-display" id="submit-coord">Ubicación: (sin seleccionar)</div>
+    <input type="file" id="submit-photo" accept="image/*">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="submit-cancel">Cancelar</button>
+      <button class="btn-primary" id="submit-confirm" disabled>Enviar</button>
+    </div>
+    <div class="modal-msg" id="submit-msg"></div>
+  </div>
+</div>
+
+<!-- Contest modal -->
+<div class="modal-overlay" id="contest-modal">
+  <div class="modal-box">
+    <h2>Contestar este reporte</h2>
+    <p class="hint">Subí una foto que muestre que el lugar está limpio.</p>
+    <div class="coord-display" id="contest-coord"></div>
+    <input type="file" id="contest-photo" accept="image/*">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="contest-cancel">Cancelar</button>
+      <button class="btn-primary" id="contest-confirm" disabled>Enviar</button>
+    </div>
+    <div class="modal-msg" id="contest-msg"></div>
   </div>
 </div>
 
@@ -554,6 +693,7 @@ let markers = [];
 let communityCluster = L.markerClusterGroup({ maxClusterRadius: 60 });
 communityCluster.addTo(map);
 let heatLayer = null;
+let removedSites = [];
 
 // ── GitHub Pages mode ────────────────────────────────
 if (window.location.hostname.includes('github.io')) {
@@ -570,6 +710,7 @@ const DEFAULT_FILES = [
   'data/output/mariano_sites.json',
   'data/output/approved_reports.json',
 ];
+const REMOVED_SITES_FILE = 'data/output/removed_sites.json';
 
 async function autoLoad() {
   let anyLoaded = false;
@@ -586,7 +727,18 @@ async function autoLoad() {
       anyLoaded = true;
     } catch(e) { /* local file:// or missing — skip */ }
   }
-  if (anyLoaded) renderAll();
+  if (anyLoaded) {
+    await loadRemovedSites();
+    renderAll();
+  }
+}
+async function loadRemovedSites() {
+  try {
+    const res = await fetch(REMOVED_SITES_FILE);
+    if (res.ok) removedSites = await res.json();
+  } catch (e) {
+    if (e instanceof SyntaxError) console.warn('removed_sites.json is malformed', e);
+  }
 }
 autoLoad();
 
@@ -679,7 +831,14 @@ function renderAll() {
   markers = [];
 
   const f = getFilters();
-  const visible = allSites.filter(s => s.latitude && s.longitude && sitePassesFilter(s, f));
+  const visible = allSites.filter(s => {
+    if (!s.latitude || !s.longitude) return false;
+    if (!sitePassesFilter(s, f)) return false;
+    if (s.source === 'community' && removedSites.some(
+      r => Math.abs(r.lat - s.latitude) < 0.0001 && Math.abs(r.lng - s.longitude) < 0.0001
+    )) return false;
+    return true;
+  });
 
   visible.forEach(s => {
     if (s.source === 'community') {
@@ -692,7 +851,26 @@ function renderAll() {
         popupAnchor: [0, -10],
       });
       const marker = L.marker([s.latitude, s.longitude], { icon });
-      marker.on('click', () => openTimeline(s.latitude, s.longitude));
+      marker.on('click', () => {
+        const popupLat = s.latitude;
+        const popupLng = s.longitude;
+        const popup = L.popup({ closeButton: true, className: '' })
+          .setLatLng([popupLat, popupLng])
+          .setContent(`
+            <div style="font-family:'Space Mono',monospace;font-size:11px;line-height:1.5;">
+              <div style="font-weight:700;margin-bottom:6px;">${esc(popupLat.toFixed(5))}, ${esc(popupLng.toFixed(5))}</div>
+              <button onclick="openTimeline(${popupLat},${popupLng});this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click();"
+                style="font-family:inherit;font-size:10px;border:1px solid #111;background:#fff;padding:3px 8px;cursor:pointer;width:100%;margin-bottom:4px;text-align:left;">
+                📋 Ver reportes
+              </button>
+              <button onclick="openContestModal(${popupLat},${popupLng});this.closest('.leaflet-popup').querySelector('.leaflet-popup-close-button').click();"
+                style="font-family:inherit;font-size:10px;border:1px solid #111;background:#fff;padding:3px 8px;cursor:pointer;width:100%;text-align:left;">
+                ✅ Este lugar está limpio
+              </button>
+            </div>
+          `);
+        popup.openOn(map);
+      });
       communityCluster.addLayer(marker);
       markers.push(marker);
       return;
@@ -979,6 +1157,144 @@ function applyLang() {
 
 // Apply default language on load
 applyLang();
+
+// ── Submit modal ──────────────────────────────────
+const WORKER_URL = 'https://lupa-submission.jmunson0711.workers.dev';
+let submitLat = null, submitLng = null;
+let submitMarker = null;
+let pickingLocation = false;
+let contestLat = null, contestLng = null;
+
+document.getElementById('submit-btn').addEventListener('click', () => {
+  submitLat = null; submitLng = null;
+  document.getElementById('submit-coord').textContent = 'Ubicación: (hacé clic en el mapa)';
+  document.getElementById('submit-photo').value = '';
+  document.getElementById('submit-confirm').disabled = true;
+  document.getElementById('submit-msg').textContent = '';
+  document.getElementById('submit-modal').classList.add('open');
+  pickingLocation = true;
+  map.getContainer().style.cursor = 'crosshair';
+});
+
+document.getElementById('submit-cancel').addEventListener('click', () => {
+  document.getElementById('submit-modal').classList.remove('open');
+  pickingLocation = false;
+  map.getContainer().style.cursor = '';
+  if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+});
+
+map.on('click', e => {
+  if (!pickingLocation) return;
+  submitLat = e.latlng.lat;
+  submitLng = e.latlng.lng;
+  document.getElementById('submit-coord').textContent =
+    `Ubicación: ${submitLat.toFixed(5)}, ${submitLng.toFixed(5)}`;
+  if (submitMarker) map.removeLayer(submitMarker);
+  submitMarker = L.circleMarker([submitLat, submitLng], {
+    radius: 8, color: '#111', fillColor: '#F0B500', fillOpacity: 0.9, weight: 2,
+  }).addTo(map);
+  updateSubmitButton();
+});
+
+document.getElementById('submit-photo').addEventListener('change', updateSubmitButton);
+
+function updateSubmitButton() {
+  const hasLocation = submitLat != null;
+  const hasPhoto = document.getElementById('submit-photo').files.length > 0;
+  document.getElementById('submit-confirm').disabled = !(hasLocation && hasPhoto);
+}
+
+document.getElementById('submit-confirm').addEventListener('click', async () => {
+  const btn = document.getElementById('submit-confirm');
+  const msg = document.getElementById('submit-msg');
+  btn.disabled = true;
+  msg.className = 'modal-msg';
+  msg.textContent = 'Enviando...';
+
+  const fd = new FormData();
+  fd.append('lat', submitLat);
+  fd.append('lng', submitLng);
+  fd.append('photo', document.getElementById('submit-photo').files[0]);
+
+  try {
+    const res = await fetch(`${WORKER_URL}/submit`, { method: 'POST', body: fd });
+    if (res.ok) {
+      msg.className = 'modal-msg ok';
+      msg.textContent = '✅ Reporte enviado. Gracias!';
+      pickingLocation = false;
+      map.getContainer().style.cursor = '';
+      setTimeout(() => {
+        document.getElementById('submit-modal').classList.remove('open');
+        if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+      }, 2000);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      msg.className = 'modal-msg err';
+      msg.textContent = data.error || `Error ${res.status}`;
+      btn.disabled = false;
+    }
+  } catch {
+    msg.className = 'modal-msg err';
+    msg.textContent = 'Error de conexión. Intentá de nuevo.';
+    btn.disabled = false;
+  }
+});
+
+// ── Contest modal ─────────────────────────────────
+function openContestModal(lat, lng) {
+  contestLat = lat; contestLng = lng;
+  document.getElementById('contest-coord').textContent =
+    `Ubicación: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  document.getElementById('contest-photo').value = '';
+  document.getElementById('contest-confirm').disabled = true;
+  document.getElementById('contest-msg').textContent = '';
+  document.getElementById('contest-modal').classList.add('open');
+}
+
+document.getElementById('contest-cancel').addEventListener('click', () => {
+  document.getElementById('contest-modal').classList.remove('open');
+});
+document.getElementById('contest-photo').addEventListener('change', () => {
+  document.getElementById('contest-confirm').disabled =
+    document.getElementById('contest-photo').files.length === 0;
+});
+
+document.getElementById('contest-confirm').addEventListener('click', async () => {
+  const photoFiles = document.getElementById('contest-photo').files;
+  if (photoFiles.length === 0) {
+    document.getElementById('contest-msg').className = 'modal-msg err';
+    document.getElementById('contest-msg').textContent = 'Necesitás adjuntar una foto.';
+    return;
+  }
+  const btn = document.getElementById('contest-confirm');
+  const msg = document.getElementById('contest-msg');
+  btn.disabled = true;
+  msg.className = 'modal-msg';
+  msg.textContent = 'Enviando...';
+
+  const fd = new FormData();
+  fd.append('lat', contestLat);
+  fd.append('lng', contestLng);
+  fd.append('photo', photoFiles[0]);
+
+  try {
+    const res = await fetch(`${WORKER_URL}/contest`, { method: 'POST', body: fd });
+    if (res.ok) {
+      msg.className = 'modal-msg ok';
+      msg.textContent = '✅ Contestación enviada. Gracias!';
+      setTimeout(() => document.getElementById('contest-modal').classList.remove('open'), 2000);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      msg.className = 'modal-msg err';
+      msg.textContent = data.error || `Error ${res.status}`;
+      btn.disabled = false;
+    }
+  } catch {
+    msg.className = 'modal-msg err';
+    msg.textContent = 'Error de conexión. Intentá de nuevo.';
+    btn.disabled = false;
+  }
+});
 
 function updateStats() {
   const f = getFilters();
