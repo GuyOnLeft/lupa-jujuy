@@ -625,14 +625,10 @@
     <button class="panel-toggle" id="filter-bar-toggle">▼</button>
   </div>
   <div class="panel-body">
-    <label><input type="checkbox" id="f-confirmed" checked> Human confirmed</label>
-    <label><input type="checkbox" id="f-borderline" checked> Borderline</label>
-    <label><input type="checkbox" id="f-pending" checked> Pending review</label>
-    <label><input type="checkbox" id="f-rejected"> Rejected</label>
-    <label><input type="checkbox" id="f-dual" checked> Dual confirmed</label>
-    <label><input type="checkbox" id="f-satellite" checked> Satellite sites</label>
-    <label><input type="checkbox" id="f-ground-truth" checked> Mariano (ground truth)</label>
-    <label><input type="checkbox" id="f-community" checked> Reportes comunidad</label>
+    <label><input type="checkbox" id="f-confirmed" checked> Confirmado</label>
+    <label><input type="checkbox" id="f-detected" checked> Detectado (IA)</label>
+    <label><input type="checkbox" id="f-borderline" checked> Dudoso</label>
+    <label><input type="checkbox" id="f-community" checked> Comunidad</label>
     <button id="heat-btn" style="
   margin-top: 8px;
   padding: 4px 10px;
@@ -773,9 +769,8 @@ let removedSites = [];
 if (window.location.hostname.includes('github.io')) {
   document.getElementById('load-label').style.display = 'none';
 
-  // Hide unreviewed/rejected pins — public map shows only verified sites
-  document.getElementById('f-pending').checked = false;
-  document.getElementById('f-rejected').checked = false;
+  // Hide unreviewed AI detections on public map — show only verified sites
+  document.getElementById('f-detected').checked = false;
 }
 
 // ── Auto-load default data files ─────────────────────
@@ -867,34 +862,26 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 // Re-render when filters change
-['f-confirmed','f-borderline','f-pending','f-rejected','f-dual','f-satellite','f-ground-truth','f-community'].forEach(id => {
+['f-confirmed','f-detected','f-borderline','f-community'].forEach(id => {
   document.getElementById(id).addEventListener('change', renderAll);
 });
 
 function getFilters() {
   return {
-    confirmed:    document.getElementById('f-confirmed').checked,
-    borderline:   document.getElementById('f-borderline').checked,
-    pending:      document.getElementById('f-pending').checked,
-    rejected:     document.getElementById('f-rejected').checked,
-    dual:         document.getElementById('f-dual').checked,
-    satellite:    document.getElementById('f-satellite').checked,
-    groundTruth:  document.getElementById('f-ground-truth').checked,
-    community:    document.getElementById('f-community').checked,
+    confirmed:  document.getElementById('f-confirmed').checked,
+    detected:   document.getElementById('f-detected').checked,
+    borderline: document.getElementById('f-borderline').checked,
+    community:  document.getElementById('f-community').checked,
   };
 }
 
 function sitePassesFilter(s, f) {
-  if (s.source === 'community')    return f.community;
+  if (s.source === 'community') return f.community;
   const verdict = s.human_verdict;
-  if (s.source === 'ground_truth') return f.groundTruth;
-  if (s.source === 'satellite')    return f.satellite;
-  if (s.dual_confirmed)            return f.dual;
-  if (verdict === 'confirmed')     return f.confirmed;
-  if (verdict === 'borderline')    return f.borderline;
-  if (verdict === 'rejected')      return f.rejected;
-  if (verdict === 'no_image')      return false;
-  return f.pending;
+  if (verdict === 'rejected' || verdict === 'no_image') return false;
+  if (s.source === 'ground_truth' || s.dual_confirmed || verdict === 'confirmed') return f.confirmed;
+  if (verdict === 'borderline') return f.borderline;
+  return f.detected;
 }
 
 function renderAll() {
@@ -1136,13 +1123,10 @@ const STRINGS = {
     loadBtn: 'Load data',
     filterTitle: 'Filter',
     legendTitle: 'Legend',
-    fConfirmed: 'Human confirmed',
+    fConfirmed: 'Confirmed',
+    fDetected: 'Detected (AI)',
     fBorderline: 'Borderline',
-    fPending: 'Pending review',
-    fRejected: 'Rejected',
-    fDual: 'Dual confirmed',
-    fSatellite: 'Satellite sites',
-    fGroundTruth: 'Mariano (ground truth)',
+    fCommunity: 'Community',
     statSites: 'sites',
     statConfirmed: 'human confirmed',
     statHigh: 'high severity',
@@ -1170,13 +1154,10 @@ const STRINGS = {
     loadBtn: 'Cargar datos',
     filterTitle: 'Filtrar',
     legendTitle: 'Leyenda',
-    fConfirmed: 'Confirmado por humano',
+    fConfirmed: 'Confirmado',
+    fDetected: 'Detectado (IA)',
     fBorderline: 'Dudoso',
-    fPending: 'Pendiente de revisión',
-    fRejected: 'Rechazado',
-    fDual: 'Doble confirmación',
-    fSatellite: 'Sitios satelitales',
-    fGroundTruth: 'Mariano (datos reales)',
+    fCommunity: 'Comunidad',
     statSites: 'sitios',
     statConfirmed: 'confirmados',
     statHigh: 'severidad alta',
@@ -1216,12 +1197,9 @@ function applyLang() {
   // Filter labels
   const labels = {
     'f-confirmed': t.fConfirmed,
+    'f-detected':  t.fDetected,
     'f-borderline': t.fBorderline,
-    'f-pending': t.fPending,
-    'f-rejected': t.fRejected,
-    'f-dual': t.fDual,
-    'f-satellite': t.fSatellite,
-    'f-ground-truth': t.fGroundTruth,
+    'f-community': t.fCommunity,
   };
   Object.entries(labels).forEach(([id, text]) => {
     const el = document.getElementById(id);
