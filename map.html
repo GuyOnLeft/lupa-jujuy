@@ -1128,16 +1128,11 @@ function buildCard(s) {
           <span class="tag ${esc(sev)}">${t.sevLabel[sev] || esc(sev).toUpperCase()}</span>
           <span class="tag">${esc(s.waste_type || 'mixed').toUpperCase()}</span>
           <span class="tag source">${t.srcLabel[src] || esc(src).toUpperCase()}</span>
-          ${s.nbi_label ? `<span class="tag nbi-${esc(s.nbi_label).replace(' ','-')}">NBI ${esc(s.nbi_label).toUpperCase()}</span>` : ''}
         </div>
         ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${esc(s.name)}</div>` : ''}
         ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">${esc(t.reviewLabel)}: ${esc(s.review_notes)}</div>` : ''}
         <div class="card-desc">${esc(s.description_es) || '—'}</div>
         <div class="card-meta">
-          <div class="meta-row">
-            <div class="meta-label">${esc(t.metaNbi)}</div>
-            <div class="meta-val">${s.nbi_pct != null ? esc(String(s.nbi_pct)) + '%' : '—'}</div>
-          </div>
           <div class="meta-row">
             <div class="meta-label">${esc(t.metaSource)}</div>
             <div class="meta-val">${t.srcLabel[src] || esc(src)}</div>
