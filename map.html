@@ -395,6 +395,29 @@
   }
   #submit-btn:hover { background: #f5f5f5; }
 
+  /* ── Location pick banner ───────────────────────── */
+  #pick-banner {
+    display: none;
+    position: fixed;
+    top: 60px; left: 50%; transform: translateX(-50%);
+    z-index: 2100;
+    background: #111; color: #fff;
+    border: 2px solid #fff;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+    padding: 10px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em;
+    display: none; align-items: center; gap: 16px;
+    white-space: nowrap;
+  }
+  #pick-banner.active { display: flex; }
+  #pick-banner-cancel {
+    background: transparent; color: #fff; border: 1px solid #666;
+    padding: 2px 10px; font-family: inherit; font-size: 10px; cursor: pointer;
+  }
+  #pick-banner-cancel:hover { border-color: #fff; }
+
   /* ── Submit / Contest modals ─────────────────────── */
   .modal-overlay {
     display: none;
@@ -423,28 +446,52 @@
     padding-bottom: 0.6rem;
     margin-bottom: 1rem;
   }
-  .modal-box .hint {
-    font-size: 11px;
-    color: #666;
-    margin-bottom: 1rem;
-  }
   .modal-box .coord-display {
-    font-size: 11px;
-    color: #111;
+    font-size: 11px; color: #111;
     margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 8px;
   }
-  .modal-box input[type=file] {
-    width: 100%;
-    font-family: inherit;
-    font-size: 11px;
-    margin-bottom: 1rem;
-    border: 1px solid #111;
-    padding: 6px;
+  .coord-change {
+    font-size: 10px; color: #666; cursor: pointer; text-decoration: underline;
+    background: none; border: none; font-family: inherit; padding: 0;
   }
+  .coord-change:hover { color: #111; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed #aaa;
+    border-radius: 2px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    transition: background 0.1s, border-color 0.1s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { background: #f5f5f5; border-color: #111; }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-icon { font-size: 22px; margin-bottom: 4px; }
+  .drop-text { font-size: 12px; font-weight: 700; color: #111; }
+  .drop-sub { font-size: 10px; color: #888; margin-top: 2px; }
+
+  /* Photo previews */
+  .photo-previews {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.75rem;
+  }
+  .photo-thumb {
+    position: relative; width: 80px; height: 60px; flex-shrink: 0;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; border: 1px solid #111; display: block; }
+  .photo-thumb .rm-photo {
+    position: absolute; top: -7px; right: -7px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #111; color: #fff; border: none;
+    font-size: 11px; line-height: 18px; text-align: center;
+    cursor: pointer; font-weight: 700; padding: 0;
+  }
+
   .modal-box .modal-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
+    display: flex; gap: 0.5rem; justify-content: flex-end;
   }
   .modal-box .btn-primary {
     background: #111; color: #fff;
@@ -567,13 +614,27 @@
   </div>
 </div>
 
-<!-- Submit modal -->
+<!-- Location pick banner (shown instead of modal during step 1) -->
+<div id="pick-banner">
+  📍 Tocá el mapa para marcar el basural
+  <button id="pick-banner-cancel">Cancelar</button>
+</div>
+
+<!-- Submit modal (shown after location is picked) -->
 <div class="modal-overlay" id="submit-modal">
   <div class="modal-box">
     <h2>Reportar un basural</h2>
-    <p class="hint">Hacé clic en el mapa para marcar la ubicación, luego adjuntá una foto.</p>
-    <div class="coord-display" id="submit-coord">Ubicación: (sin seleccionar)</div>
-    <input type="file" id="submit-photo" accept="image/*">
+    <div class="coord-display">
+      <span id="submit-coord">—</span>
+      <button class="coord-change" id="submit-repin">cambiar</button>
+    </div>
+    <div class="drop-zone" id="submit-drop">
+      <input type="file" id="submit-photo" accept="image/*" multiple>
+      <div class="drop-icon">📷</div>
+      <div class="drop-text">Arrastrá fotos aquí o hacé clic</div>
+      <div class="drop-sub">hasta 2 fotos · JPG, PNG, WEBP</div>
+    </div>
+    <div class="photo-previews" id="submit-previews"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="submit-cancel">Cancelar</button>
       <button class="btn-primary" id="submit-confirm" disabled>Enviar</button>
@@ -586,9 +647,14 @@
 <div class="modal-overlay" id="contest-modal">
   <div class="modal-box">
     <h2>Contestar este reporte</h2>
-    <p class="hint">Subí una foto que muestre que el lugar está limpio.</p>
-    <div class="coord-display" id="contest-coord"></div>
-    <input type="file" id="contest-photo" accept="image/*">
+    <div class="coord-display"><span id="contest-coord"></span></div>
+    <div class="drop-zone" id="contest-drop">
+      <input type="file" id="contest-photo" accept="image/*" multiple>
+      <div class="drop-icon">📷</div>
+      <div class="drop-text">Arrastrá fotos aquí o hacé clic</div>
+      <div class="drop-sub">hasta 2 fotos · JPG, PNG, WEBP</div>
+    </div>
+    <div class="photo-previews" id="contest-previews"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="contest-cancel">Cancelar</button>
       <button class="btn-primary" id="contest-confirm" disabled>Enviar</button>
@@ -1155,47 +1221,121 @@ applyLang();
 const WORKER_URL = 'https://lupa-submission.jmunson0711.workers.dev';
 let submitLat = null, submitLng = null;
 let submitMarker = null;
+let submitPhotos = []; // File[]
 let pickingLocation = false;
 let contestLat = null, contestLng = null;
 
-document.getElementById('submit-btn').addEventListener('click', () => {
-  submitLat = null; submitLng = null;
-  document.getElementById('submit-coord').textContent = 'Ubicación: (hacé clic en el mapa)';
-  document.getElementById('submit-photo').value = '';
-  document.getElementById('submit-confirm').disabled = true;
+function startLocationPick() {
+  pickingLocation = true;
+  document.getElementById('submit-modal').classList.remove('open');
+  document.getElementById('pick-banner').classList.add('active');
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function stopLocationPick() {
+  pickingLocation = false;
+  document.getElementById('pick-banner').classList.remove('active');
+  map.getContainer().style.cursor = '';
+}
+
+function openSubmitStep2() {
+  document.getElementById('submit-coord').textContent =
+    `${submitLat.toFixed(5)}, ${submitLng.toFixed(5)}`;
   document.getElementById('submit-msg').textContent = '';
   document.getElementById('submit-modal').classList.add('open');
-  pickingLocation = true;
-  map.getContainer().style.cursor = 'crosshair';
+  updateSubmitButton();
+}
+
+function cancelSubmit() {
+  stopLocationPick();
+  document.getElementById('submit-modal').classList.remove('open');
+  submitPhotos = [];
+  renderPreviews('submit-previews', submitPhotos, () => updateSubmitButton());
+  if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+}
+
+document.getElementById('submit-btn').addEventListener('click', () => {
+  submitLat = null; submitLng = null; submitPhotos = [];
+  renderPreviews('submit-previews', submitPhotos, () => updateSubmitButton());
+  startLocationPick();
 });
 
-document.getElementById('submit-cancel').addEventListener('click', () => {
+document.getElementById('pick-banner-cancel').addEventListener('click', cancelSubmit);
+document.getElementById('submit-cancel').addEventListener('click', cancelSubmit);
+
+document.getElementById('submit-repin').addEventListener('click', () => {
   document.getElementById('submit-modal').classList.remove('open');
-  pickingLocation = false;
-  map.getContainer().style.cursor = '';
-  if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+  startLocationPick();
 });
 
 map.on('click', e => {
   if (!pickingLocation) return;
   submitLat = e.latlng.lat;
   submitLng = e.latlng.lng;
-  document.getElementById('submit-coord').textContent =
-    `Ubicación: ${submitLat.toFixed(5)}, ${submitLng.toFixed(5)}`;
   if (submitMarker) map.removeLayer(submitMarker);
   submitMarker = L.circleMarker([submitLat, submitLng], {
     radius: 8, color: '#111', fillColor: '#F0B500', fillOpacity: 0.9, weight: 2,
   }).addTo(map);
-  updateSubmitButton();
+  stopLocationPick();
+  openSubmitStep2();
 });
 
-document.getElementById('submit-photo').addEventListener('change', updateSubmitButton);
-
 function updateSubmitButton() {
-  const hasLocation = submitLat != null;
-  const hasPhoto = document.getElementById('submit-photo').files.length > 0;
-  document.getElementById('submit-confirm').disabled = !(hasLocation && hasPhoto);
+  document.getElementById('submit-confirm').disabled =
+    !(submitLat != null && submitPhotos.length > 0);
 }
+
+// ── Drop zone helpers ──────────────────────────────
+function setupDropZone(zoneId, fileInputId, photosArr, previewsId, onUpdate) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(fileInputId);
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files, photosArr, previewsId, onUpdate);
+  });
+  input.addEventListener('change', () => {
+    addFiles(input.files, photosArr, previewsId, onUpdate);
+    input.value = '';
+  });
+}
+
+function addFiles(fileList, photosArr, previewsId, onUpdate) {
+  for (const f of fileList) {
+    if (!f.type.startsWith('image/')) continue;
+    if (photosArr.length >= 2) break;
+    photosArr.push(f);
+  }
+  renderPreviews(previewsId, photosArr, onUpdate);
+}
+
+function renderPreviews(containerId, photosArr, onUpdate) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  photosArr.forEach((f, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    const rm = document.createElement('button');
+    rm.className = 'rm-photo';
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      photosArr.splice(i, 1);
+      renderPreviews(containerId, photosArr, onUpdate);
+      onUpdate();
+    });
+    thumb.appendChild(img);
+    thumb.appendChild(rm);
+    container.appendChild(thumb);
+  });
+  onUpdate();
+}
+
+setupDropZone('submit-drop', 'submit-photo', submitPhotos, 'submit-previews', updateSubmitButton);
 
 document.getElementById('submit-confirm').addEventListener('click', async () => {
   const btn = document.getElementById('submit-confirm');
@@ -1207,18 +1347,18 @@ document.getElementById('submit-confirm').addEventListener('click', async () => 
   const fd = new FormData();
   fd.append('lat', submitLat);
   fd.append('lng', submitLng);
-  fd.append('photo', document.getElementById('submit-photo').files[0]);
+  fd.append('photo', submitPhotos[0]);
 
   try {
     const res = await fetch(`${WORKER_URL}/submit`, { method: 'POST', body: fd });
     if (res.ok) {
       msg.className = 'modal-msg ok';
-      msg.textContent = '✅ Reporte enviado. Gracias!';
-      pickingLocation = false;
-      map.getContainer().style.cursor = '';
+      msg.textContent = '✅ Reporte enviado. ¡Gracias!';
       setTimeout(() => {
         document.getElementById('submit-modal').classList.remove('open');
         if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+        submitPhotos = [];
+        renderPreviews('submit-previews', submitPhotos, updateSubmitButton);
       }, 2000);
     } else {
       const data = await res.json().catch(() => ({}));
@@ -1234,11 +1374,20 @@ document.getElementById('submit-confirm').addEventListener('click', async () => 
 });
 
 // ── Contest modal ─────────────────────────────────
+let contestPhotos = [];
+
+setupDropZone('contest-drop', 'contest-photo', contestPhotos, 'contest-previews', () => {
+  document.getElementById('contest-confirm').disabled = contestPhotos.length === 0;
+});
+
 function openContestModal(lat, lng) {
   contestLat = lat; contestLng = lng;
+  contestPhotos = [];
+  renderPreviews('contest-previews', contestPhotos, () => {
+    document.getElementById('contest-confirm').disabled = true;
+  });
   document.getElementById('contest-coord').textContent =
-    `Ubicación: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  document.getElementById('contest-photo').value = '';
+    `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   document.getElementById('contest-confirm').disabled = true;
   document.getElementById('contest-msg').textContent = '';
   document.getElementById('contest-modal').classList.add('open');
@@ -1246,19 +1395,10 @@ function openContestModal(lat, lng) {
 
 document.getElementById('contest-cancel').addEventListener('click', () => {
   document.getElementById('contest-modal').classList.remove('open');
-});
-document.getElementById('contest-photo').addEventListener('change', () => {
-  document.getElementById('contest-confirm').disabled =
-    document.getElementById('contest-photo').files.length === 0;
+  contestPhotos = [];
 });
 
 document.getElementById('contest-confirm').addEventListener('click', async () => {
-  const photoFiles = document.getElementById('contest-photo').files;
-  if (photoFiles.length === 0) {
-    document.getElementById('contest-msg').className = 'modal-msg err';
-    document.getElementById('contest-msg').textContent = 'Necesitás adjuntar una foto.';
-    return;
-  }
   const btn = document.getElementById('contest-confirm');
   const msg = document.getElementById('contest-msg');
   btn.disabled = true;
@@ -1268,13 +1408,14 @@ document.getElementById('contest-confirm').addEventListener('click', async () =>
   const fd = new FormData();
   fd.append('lat', contestLat);
   fd.append('lng', contestLng);
-  fd.append('photo', photoFiles[0]);
+  fd.append('photo', contestPhotos[0]);
 
   try {
     const res = await fetch(`${WORKER_URL}/contest`, { method: 'POST', body: fd });
     if (res.ok) {
       msg.className = 'modal-msg ok';
-      msg.textContent = '✅ Contestación enviada. Gracias!';
+      msg.textContent = '✅ Contestación enviada. ¡Gracias!';
+      contestPhotos = [];
       setTimeout(() => document.getElementById('contest-modal').classList.remove('open'), 2000);
     } else {
       const data = await res.json().catch(() => ({}));
