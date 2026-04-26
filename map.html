@@ -86,6 +86,8 @@
   #map {
     flex: 1;
     position: relative;
+  }
+  #map .leaflet-tile-pane {
     filter: grayscale(100%) contrast(1.1);
   }
   #lang-btn {
@@ -102,7 +104,6 @@
     padding: 4px 10px;
     line-height: 1;
     box-shadow: 2px 2px 0 #111;
-    filter: none;
   }
   #lang-btn:hover { background: #eee; }
 
@@ -1018,19 +1019,35 @@ function buildCommunityCard(group, lat, lng) {
   const dateLabel = latest
     ? new Date(latest.submitted_at).toLocaleDateString(lang === 'es' ? 'es-AR' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
-  const photosHtml = group.filter(s => s.photo_url).map(s =>
-    `<img src="${esc(s.photo_url)}" onclick="openLightbox('${esc(s.photo_url)}')"
-      style="width:100%;max-height:180px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;margin-bottom:6px;display:block;cursor:zoom-in;"
-      onerror="this.style.display='none'">`
-  ).join('');
+  const photos = group.filter(s => s.photo_url);
+  const cid = `c${Math.abs(Math.round(lat * 1e5))}x${Math.abs(Math.round(lng * 1e5))}`;
+
+  const carouselHtml = photos.length === 0 ? '' : photos.length === 1
+    ? `<img src="${esc(photos[0].photo_url)}" onclick="openLightbox('${esc(photos[0].photo_url)}')"
+        style="width:100%;max-height:180px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;display:block;cursor:zoom-in;"
+        onerror="this.style.display='none'">`
+    : `<div id="${cid}" data-idx="0" style="position:relative;">
+        ${photos.map((s, i) =>
+          `<img src="${esc(s.photo_url)}" data-slide="${i}" onclick="openLightbox('${esc(s.photo_url)}')"
+            style="width:100%;max-height:180px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;display:${i === 0 ? 'block' : 'none'};cursor:zoom-in;"
+            onerror="this.style.display='none'">`
+        ).join('')}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 2px;">
+          <button onclick="carouselNav('${cid}',${photos.length},-1)"
+            style="font-family:'Space Mono',monospace;font-size:13px;border:1px solid #111;background:#fff;padding:2px 8px;cursor:pointer;">◀</button>
+          <span class="carousel-counter" style="font-size:10px;color:#666;font-family:'Space Mono',monospace;">1 / ${photos.length}</span>
+          <button onclick="carouselNav('${cid}',${photos.length},1)"
+            style="font-family:'Space Mono',monospace;font-size:13px;border:1px solid #111;background:#fff;padding:2px 8px;cursor:pointer;">▶</button>
+        </div>
+      </div>`;
 
   return `
     <div class="card">
-      ${photosHtml}
+      ${carouselHtml}
       <div class="card-body">
         <div class="card-tags">
           <span class="tag">${t.tagCommunity}</span>
-          ${count > 1 ? `<span class="tag">${count} ${t.tagPhotos}</span>` : ''}
+          ${photos.length > 1 ? `<span class="tag">${photos.length} ${t.tagPhotos}</span>` : ''}
         </div>
         ${dateLabel ? `<div style="font-size:11px;color:#666;margin-bottom:8px;">${esc(dateLabel)}</div>` : ''}
         <div class="card-footer">
@@ -1118,20 +1135,12 @@ function buildCard(s) {
         <div class="card-desc">${esc(s.description_es) || '—'}</div>
         <div class="card-meta">
           <div class="meta-row">
-            <div class="meta-label">${t.metaConf}</div>
-            <div class="meta-val">${esc(confLabel)}</div>
-          </div>
-          <div class="meta-row">
-            <div class="meta-label">${esc(t.metaArea)}</div>
-            <div class="meta-val">${esc(areaLabel)}</div>
-          </div>
-          <div class="meta-row">
             <div class="meta-label">${esc(t.metaNbi)}</div>
             <div class="meta-val">${s.nbi_pct != null ? esc(String(s.nbi_pct)) + '%' : '—'}</div>
           </div>
           <div class="meta-row">
             <div class="meta-label">${esc(t.metaSource)}</div>
-            <div class="meta-val">${esc(src)}</div>
+            <div class="meta-val">${t.srcLabel[src] || esc(src)}</div>
           </div>
         </div>
         ${historyHtml}
@@ -1551,6 +1560,17 @@ function updateStats() {
   }
   document.getElementById('stat-dual').textContent = visible.filter(s => s.dual_confirmed).length;
   document.getElementById('stat-gt').textContent = allSites.filter(s => s.source === 'ground_truth').length;
+}
+
+function carouselNav(id, total, dir) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  let idx = parseInt(container.dataset.idx || '0');
+  container.querySelector(`[data-slide="${idx}"]`).style.display = 'none';
+  idx = (idx + dir + total) % total;
+  container.querySelector(`[data-slide="${idx}"]`).style.display = 'block';
+  container.dataset.idx = idx;
+  container.querySelector('.carousel-counter').textContent = `${idx + 1} / ${total}`;
 }
 
 function openLightbox(url) {
