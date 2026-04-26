@@ -254,9 +254,10 @@
     color: #999;
     letter-spacing: 0.03em;
   }
-  .maps-link {
+  .maps-link,
+  .leaflet-popup-content a.maps-link {
     font-size: 10px;
-    color: #fff;
+    color: #fff !important;
     background: #111;
     text-decoration: none;
     letter-spacing: 0.07em;
@@ -264,7 +265,8 @@
     padding: 5px 10px;
     white-space: nowrap;
   }
-  .maps-link:hover { background: #333; }
+  .maps-link:hover,
+  .leaflet-popup-content a.maps-link:hover { background: #333; }
 
   .btn-contest {
     font-family: 'Space Mono', monospace;
