@@ -587,7 +587,6 @@
       font-size: 11px;
       gap: 16px;
     }
-    #stats .stat-attr { display: none; }
 
     .card-img, .card-img-placeholder { height: 160px; }
     .card-body { padding: 12px 14px; }
@@ -623,12 +622,7 @@
   <span><b id="stat-total">0</b> <span id="lbl-total">sitios</span></span>
   <span><b id="stat-confirmed">0</b> <span id="lbl-confirmed">confirmados</span></span>
   <span><b id="stat-high">0</b> <span id="lbl-high">severidad alta</span></span>
-  <span><b id="stat-sat">0</b> <span id="lbl-sat">satelital</span></span>
-  <span><b id="stat-sv">0</b> <span id="lbl-sv">street view</span></span>
-  <span><span id="lbl-nbi">NBI prom.</span> <b id="stat-nbi">—</b></span>
-  <span><b id="stat-dual">0</b> <span id="lbl-dual">doble confirmación</span></span>
-  <span><b id="stat-gt">0</b> <span id="lbl-gt">datos reales</span></span>
-  <span class="stat-attr" style="margin-left:auto;font-size:11px;color:#bbb;">Basurales: Abr 2026 · Street View: Google imagery · NBI: INDEC censo 2010</span>
+  <span><b id="stat-community">0</b> <span id="lbl-community">reportes comunidad</span></span>
 </div>
 
 <div id="map">
@@ -1129,7 +1123,7 @@ function buildCard(s) {
         </div>
         ${s.name ? `<div style="font-size:13px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px;">${esc(s.name)}</div>` : ''}
         ${s.review_notes ? `<div style="font-size:11px;color:#666;margin-bottom:8px;font-style:italic;">${esc(t.reviewLabel)}: ${esc(s.review_notes)}</div>` : ''}
-        <div class="card-desc">${esc(s.description_es) || '—'}</div>
+        ${lang === 'en' && s.description_es ? `<div class="card-desc">${esc(s.description_es)}</div>` : ''}
         <div class="card-meta">
           <div class="meta-row">
             <div class="meta-label">${esc(t.metaSource)}</div>
@@ -1206,13 +1200,9 @@ const STRINGS = {
     fBorderline: 'Borderline',
     fCommunity: 'Community',
     statSites: 'sites',
-    statConfirmed: 'human confirmed',
+    statConfirmed: 'confirmed',
     statHigh: 'high severity',
-    statSat: 'satellite',
-    statSv: 'street view',
-    statNbi: 'avg NBI',
-    statDual: 'dual confirmed',
-    statGt: 'ground truth',
+    statCommunity: 'community reports',
     metaConf: 'AI confidence',
     metaArea: 'Area',
     metaNbi: 'NBI (poverty)',
@@ -1248,11 +1238,7 @@ const STRINGS = {
     statSites: 'sitios',
     statConfirmed: 'confirmados',
     statHigh: 'severidad alta',
-    statSat: 'satelital',
-    statSv: 'street view',
-    statNbi: 'NBI prom.',
-    statDual: 'doble confirmación',
-    statGt: 'datos reales',
+    statCommunity: 'reportes comunidad',
     metaConf: 'Confianza IA',
     metaArea: 'Área',
     metaNbi: 'NBI (pobreza)',
@@ -1310,11 +1296,7 @@ function applyLang() {
   document.getElementById('lbl-total').textContent     = t.statSites;
   document.getElementById('lbl-confirmed').textContent = t.statConfirmed;
   document.getElementById('lbl-high').textContent      = t.statHigh;
-  document.getElementById('lbl-sat').textContent       = t.statSat;
-  document.getElementById('lbl-sv').textContent        = t.statSv;
-  document.getElementById('lbl-nbi').textContent       = t.statNbi;
-  document.getElementById('lbl-dual').textContent      = t.statDual;
-  document.getElementById('lbl-gt').textContent        = t.statGt;
+  document.getElementById('lbl-community').textContent = t.statCommunity;
 
   // Legend rows
   document.querySelectorAll('.leg-lbl').forEach(el => {
@@ -1544,15 +1526,7 @@ function updateStats() {
   document.getElementById('stat-total').textContent = visible.length;
   document.getElementById('stat-confirmed').textContent = allSites.filter(s => s.human_verdict === 'confirmed').length;
   document.getElementById('stat-high').textContent = visible.filter(s => s.severity === 'high').length;
-  document.getElementById('stat-sat').textContent = visible.filter(s => s.source === 'satellite').length;
-  document.getElementById('stat-sv').textContent = visible.filter(s => s.source === 'streetview').length;
-  const withNbi = visible.filter(s => s.nbi_pct != null);
-  if (withNbi.length > 0) {
-    const avg = withNbi.reduce((sum, s) => sum + s.nbi_pct, 0) / withNbi.length;
-    document.getElementById('stat-nbi').textContent = avg.toFixed(1) + '%';
-  }
-  document.getElementById('stat-dual').textContent = visible.filter(s => s.dual_confirmed).length;
-  document.getElementById('stat-gt').textContent = allSites.filter(s => s.source === 'ground_truth').length;
+  document.getElementById('stat-community').textContent = allSites.filter(s => s.source === 'community').length;
 }
 
 function carouselNav(id, total, dir) {
