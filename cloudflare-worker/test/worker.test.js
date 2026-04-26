@@ -51,10 +51,10 @@ describe('supabase helpers', () => {
     const { insertReport } = await import('../src/supabase.js');
     await insertReport(
       { url: 'https://proj.supabase.co', key: 'service-key' },
-      { lat: -24.19, lng: -65.30, photoUrl: 'https://cdn/photo.jpg', senderHash: 'abc', source: 'web' }
+      { lat: -24.19, lng: -65.30, photoUrl: 'https://cdn/photo.jpg', senderHash: 'abc', source: 'community' }
     );
     const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(callBody.source).toBe('web');
+    expect(callBody.source).toBe('community');
   });
 
   it('insertContestation sends correct POST', async () => {

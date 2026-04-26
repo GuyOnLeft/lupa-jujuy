@@ -177,7 +177,7 @@ async function handleWebhook(request, env) {
       if (flow === 'contest') {
         await insertContestation(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
       } else {
-        await insertReport(sb, { lat, lng, photoUrl, senderHash, source: 'whatsapp' });
+        await insertReport(sb, { lat, lng, photoUrl, senderHash, source: 'community' });
       }
     } catch (e) {
       console.error('submission error', e);
@@ -233,7 +233,7 @@ async function handleWebSubmit(request, env) {
     const photoBuffer = await photoFile.arrayBuffer();
     const tempId = crypto.randomUUID();
     const photoUrl = await uploadPhoto(sb, tempId, photoBuffer, photoFile.type || 'image/jpeg');
-    const id = await insertReport(sb, { lat, lng, photoUrl, senderHash: null, source: 'web' });
+    const id = await insertReport(sb, { lat, lng, photoUrl, senderHash: null, source: 'community' });
     return new Response(JSON.stringify({ success: true, id }), { status: 201, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
   } catch (e) {
     console.error('web submit error', e);
