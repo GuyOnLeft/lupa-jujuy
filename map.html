@@ -572,6 +572,21 @@
     cursor: pointer; line-height: 1; background: none; border: none;
     font-family: 'Space Mono', monospace;
   }
+  .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    color: #fff; font-size: 32px; font-weight: 700;
+    cursor: pointer; background: none; border: none;
+    font-family: 'Space Mono', monospace;
+    padding: 16px; opacity: 0.7; z-index: 10000;
+  }
+  .lb-nav:hover { opacity: 1; }
+  #lb-prev { left: 12px; }
+  #lb-next { right: 12px; }
+  #lb-counter {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 11px; font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em; opacity: 0.7;
+  }
 
   /* ── Mobile ─────────────────────────────────────── */
   @media (max-width: 600px) {
@@ -1019,13 +1034,16 @@ function buildCommunityCard(group, lat, lng) {
   const photos = group.filter(s => s.photo_url);
   const cid = `c${Math.abs(Math.round(lat * 1e5))}x${Math.abs(Math.round(lng * 1e5))}`;
 
+  // Register photos for lightbox carousel
+  __lb[cid] = photos.map(s => s.photo_url);
+
   const carouselHtml = photos.length === 0 ? '' : photos.length === 1
-    ? `<img src="${esc(photos[0].photo_url)}" onclick="openLightbox('${esc(photos[0].photo_url)}')"
+    ? `<img src="${esc(photos[0].photo_url)}" onclick="openLightbox('${cid}',0)"
         style="width:100%;max-height:180px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;display:block;cursor:zoom-in;"
         onerror="this.style.display='none'">`
     : `<div id="${cid}" data-idx="0" style="position:relative;">
         ${photos.map((s, i) =>
-          `<img src="${esc(s.photo_url)}" data-slide="${i}" onclick="openLightbox('${esc(s.photo_url)}')"
+          `<img src="${esc(s.photo_url)}" data-slide="${i}" onclick="openLightbox('${cid}',${i})"
             style="width:100%;max-height:180px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;display:${i === 0 ? 'block' : 'none'};cursor:zoom-in;"
             onerror="this.style.display='none'">`
         ).join('')}
@@ -1097,9 +1115,7 @@ function buildCard(s) {
       <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#666;margin-bottom:6px;">
         ${nearbyReports.length} ${nearbyReports.length === 1 ? t.communityReportsLabel : t.communityReportsLabelPlural}
       </div>
-      ${nearbyReports.map(r => `<img src="${esc(r.photo_url)}" onclick="openLightbox('${esc(r.photo_url)}')"
-        style="width:100%;max-height:120px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;margin-bottom:4px;display:block;cursor:zoom-in;"
-        onerror="this.style.display='none'">`).join('')}
+      ${(() => { const nk = `nr${Math.abs(Math.round(s.latitude*1e5))}x${Math.abs(Math.round(s.longitude*1e5))}`; __lb[nk] = nearbyReports.map(r => r.photo_url); return nearbyReports.map((r, i) => `<img src="${esc(r.photo_url)}" onclick="openLightbox('${nk}',${i})" style="width:100%;max-height:120px;object-fit:contain;background:#f0f0f0;border:1px solid #ddd;margin-bottom:4px;display:block;cursor:zoom-in;" onerror="this.style.display='none'">`).join(''); })()}
     </div>` : '';
 
   const historyHtml = s.first_detected_year
@@ -1540,10 +1556,28 @@ function carouselNav(id, total, dir) {
   container.querySelector('.carousel-counter').textContent = `${idx + 1} / ${total}`;
 }
 
-function openLightbox(url) {
-  const lb = document.getElementById('lightbox');
-  document.getElementById('lightbox-img').src = url;
-  lb.classList.add('open');
+const __lb = {};       // registry: cid → [url, ...]
+let __lbKey = null;
+let __lbIdx = 0;
+
+function openLightbox(cid, idx) {
+  __lbKey = cid;
+  __lbIdx = idx;
+  const urls = __lb[cid] || [cid]; // fallback: cid is a bare URL (legacy single-photo calls)
+  document.getElementById('lightbox-img').src = urls[__lbIdx];
+  const multi = urls.length > 1;
+  document.getElementById('lb-prev').style.display  = multi ? 'block' : 'none';
+  document.getElementById('lb-next').style.display  = multi ? 'block' : 'none';
+  document.getElementById('lb-counter').textContent = multi ? `${__lbIdx + 1} / ${urls.length}` : '';
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function lightboxNav(dir) {
+  const urls = __lb[__lbKey] || [];
+  if (!urls.length) return;
+  __lbIdx = (__lbIdx + dir + urls.length) % urls.length;
+  document.getElementById('lightbox-img').src = urls[__lbIdx];
+  document.getElementById('lb-counter').textContent = `${__lbIdx + 1} / ${urls.length}`;
 }
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lightbox').addEventListener('click', () => {
@@ -1554,7 +1588,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <div id="lightbox">
   <button id="lightbox-close" onclick="document.getElementById('lightbox').classList.remove('open')">✕</button>
+  <button class="lb-nav" id="lb-prev" onclick="event.stopPropagation();lightboxNav(-1)">◀</button>
   <img id="lightbox-img" src="" alt="foto">
+  <button class="lb-nav" id="lb-next" onclick="event.stopPropagation();lightboxNav(1)">▶</button>
+  <div id="lb-counter"></div>
 </div>
 </body>
 </html>
