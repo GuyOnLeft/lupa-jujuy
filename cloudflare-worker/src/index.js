@@ -1,6 +1,6 @@
 import { parseTwilioBody, parseMapsUrl, hashSender, MSG } from './bot.js';
 import {
-  insertReport, fetchPending, updateStatus, uploadPhoto,
+  insertReport, fetchPending, fetchApproved, updateStatus, uploadPhoto,
   insertContestation, fetchPendingContestations, updateContestationStatus, fetchContestationById,
 } from './supabase.js';
 
@@ -399,6 +399,27 @@ export default {
     if ((method === 'POST' || method === 'OPTIONS') && pathname === '/contest') {
       return handleWebContest(request, env);
     }
+    if (method === 'GET' && pathname === '/reports') {
+      const origin = request.headers.get('Origin') || '';
+      const sb = { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
+      try {
+        const rows = await fetchApproved(sb);
+        const sites = rows.map(r => ({
+          latitude: r.lat,
+          longitude: r.lng,
+          photo_url: r.photo_url,
+          source: 'community',
+          submitted_at: r.submitted_at,
+          id: r.id,
+        }));
+        return new Response(JSON.stringify(sites), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
+      }
+    }
+
     if (pathname === '/admin/pending') {
       return handleAdminPending(request, env);
     }
