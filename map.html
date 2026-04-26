@@ -625,7 +625,6 @@
   <span><b id="stat-total">0</b> <span id="lbl-total">sitios</span></span>
   <span><b id="stat-confirmed">0</b> <span id="lbl-confirmed">confirmados</span></span>
   <span><b id="stat-high">0</b> <span id="lbl-high">severidad alta</span></span>
-  <span><b id="stat-community">0</b> <span id="lbl-community">reportes comunidad</span></span>
 </div>
 
 <div id="map">
@@ -1299,7 +1298,6 @@ function applyLang() {
   document.getElementById('lbl-total').textContent     = t.statSites;
   document.getElementById('lbl-confirmed').textContent = t.statConfirmed;
   document.getElementById('lbl-high').textContent      = t.statHigh;
-  document.getElementById('lbl-community').textContent = t.statCommunity;
 
   // Legend rows
   document.querySelectorAll('.leg-lbl').forEach(el => {
@@ -1527,9 +1525,8 @@ function updateStats() {
   const f = getFilters();
   const visible = allSites.filter(s => sitePassesFilter(s, f));
   document.getElementById('stat-total').textContent = visible.length;
-  document.getElementById('stat-confirmed').textContent = allSites.filter(s => s.human_verdict === 'confirmed').length;
+  document.getElementById('stat-confirmed').textContent = allSites.filter(s => s.human_verdict === 'confirmed' || s.source === 'community').length;
   document.getElementById('stat-high').textContent = visible.filter(s => s.severity === 'high').length;
-  document.getElementById('stat-community').textContent = allSites.filter(s => s.source === 'community').length;
 }
 
 function carouselNav(id, total, dir) {
