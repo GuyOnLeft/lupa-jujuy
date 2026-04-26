@@ -317,34 +317,11 @@
     transition: transform 0.1s;
   }
   .pin:hover { transform: scale(1.4); }
-  .pin.medium { background: #fff; }
-  .pin.low    { background: #fff; border-color: #999; }
-  .pin.sv     { border-style: dashed; }
-  .pin.dual   { background: #111; border: 2px solid #111; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #111; }
-
   /* Human-reviewed verdict pins */
   .pin.human-confirmed  { width:16px; height:16px; background:#111; border:3px solid #111; box-shadow:0 0 0 2px #fff,0 0 0 4px #111; }
   .pin.human-borderline { width:13px; height:13px; background:#fff; border:2px dashed #111; }
   .pin.human-rejected   { width:8px;  height:8px;  background:#fff; border:1px solid #ccc; opacity:0.4; }
   .pin.human-pending    { background: #fff; border-color: #ccc; }
-
-  /* Ground truth pins (Mariano's documented sites) */
-  .pin.ground-truth {
-    width: 18px; height: 18px;
-    background: #fff;
-    border: 3px solid #111;
-    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #111;
-    position: relative;
-  }
-  .pin.ground-truth::after {
-    content: '★';
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 10px;
-    line-height: 1;
-    color: #111;
-  }
   .pin.community {
     background: #F0B500;
     border: 2px solid #fff;
@@ -389,7 +366,7 @@
   /* ── Floating action buttons ────────────────────── */
   #wa-btn, #submit-btn {
     position: fixed;
-    right: 16px;
+    left: 16px;
     z-index: 1001;
     border: 2px solid #111;
     font-family: 'Space Mono', monospace;
@@ -417,6 +394,29 @@
     color: #111;
   }
   #submit-btn:hover { background: #f5f5f5; }
+
+  /* ── Location pick banner ───────────────────────── */
+  #pick-banner {
+    display: none;
+    position: fixed;
+    top: 60px; left: 50%; transform: translateX(-50%);
+    z-index: 2100;
+    background: #111; color: #fff;
+    border: 2px solid #fff;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+    padding: 10px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em;
+    display: none; align-items: center; gap: 16px;
+    white-space: nowrap;
+  }
+  #pick-banner.active { display: flex; }
+  #pick-banner-cancel {
+    background: transparent; color: #fff; border: 1px solid #666;
+    padding: 2px 10px; font-family: inherit; font-size: 10px; cursor: pointer;
+  }
+  #pick-banner-cancel:hover { border-color: #fff; }
 
   /* ── Submit / Contest modals ─────────────────────── */
   .modal-overlay {
@@ -446,28 +446,52 @@
     padding-bottom: 0.6rem;
     margin-bottom: 1rem;
   }
-  .modal-box .hint {
-    font-size: 11px;
-    color: #666;
-    margin-bottom: 1rem;
-  }
   .modal-box .coord-display {
-    font-size: 11px;
-    color: #111;
+    font-size: 11px; color: #111;
     margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 8px;
   }
-  .modal-box input[type=file] {
-    width: 100%;
-    font-family: inherit;
-    font-size: 11px;
-    margin-bottom: 1rem;
-    border: 1px solid #111;
-    padding: 6px;
+  .coord-change {
+    font-size: 10px; color: #666; cursor: pointer; text-decoration: underline;
+    background: none; border: none; font-family: inherit; padding: 0;
   }
+  .coord-change:hover { color: #111; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed #aaa;
+    border-radius: 2px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    transition: background 0.1s, border-color 0.1s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { background: #f5f5f5; border-color: #111; }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-icon { font-size: 22px; margin-bottom: 4px; }
+  .drop-text { font-size: 12px; font-weight: 700; color: #111; }
+  .drop-sub { font-size: 10px; color: #888; margin-top: 2px; }
+
+  /* Photo previews */
+  .photo-previews {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.75rem;
+  }
+  .photo-thumb {
+    position: relative; width: 80px; height: 60px; flex-shrink: 0;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; border: 1px solid #111; display: block; }
+  .photo-thumb .rm-photo {
+    position: absolute; top: -7px; right: -7px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #111; color: #fff; border: none;
+    font-size: 11px; line-height: 18px; text-align: center;
+    cursor: pointer; font-weight: 700; padding: 0;
+  }
+
   .modal-box .modal-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
+    display: flex; gap: 0.5rem; justify-content: flex-end;
   }
   .modal-box .btn-primary {
     background: #111; color: #fff;
@@ -509,8 +533,8 @@
 
     #legend { bottom: 16px; left: 8px; padding: 8px 12px; }
     #filter-bar { bottom: 16px; right: 8px; padding: 8px 12px; }
-    #wa-btn  { bottom: 170px; }
-    #submit-btn { bottom: 110px; }
+    #wa-btn  { bottom: 200px; left: 8px; }
+    #submit-btn { bottom: 140px; left: 8px; }
   }
 </style>
 </head>
@@ -529,44 +553,41 @@
 </header>
 
 <div id="stats">
-  <span><b id="stat-total">0</b> sites</span>
-  <span><b id="stat-confirmed">0</b> human confirmed</span>
-  <span><b id="stat-high">0</b> high severity</span>
-  <span><b id="stat-sat">0</b> satellite</span>
-  <span><b id="stat-sv">0</b> street view</span>
-  <span>avg NBI <b id="stat-nbi">—</b></span>
-  <span><b id="stat-dual">0</b> dual confirmed</span>
-  <span><b id="stat-gt">0</b> ground truth</span>
-  <span class="stat-attr" style="margin-left:auto;font-size:11px;color:#bbb;">Waste sites: Apr 2026 · Street View: Google imagery (dates vary) · NBI: INDEC 2010 census · Satellite history: Landsat 1986–2026</span>
+  <span><b id="stat-total">0</b> <span id="lbl-total">sitios</span></span>
+  <span><b id="stat-confirmed">0</b> <span id="lbl-confirmed">confirmados</span></span>
+  <span><b id="stat-high">0</b> <span id="lbl-high">severidad alta</span></span>
+  <span><b id="stat-sat">0</b> <span id="lbl-sat">satelital</span></span>
+  <span><b id="stat-sv">0</b> <span id="lbl-sv">street view</span></span>
+  <span><span id="lbl-nbi">NBI prom.</span> <b id="stat-nbi">—</b></span>
+  <span><b id="stat-dual">0</b> <span id="lbl-dual">doble confirmación</span></span>
+  <span><b id="stat-gt">0</b> <span id="lbl-gt">datos reales</span></span>
+  <span class="stat-attr" style="margin-left:auto;font-size:11px;color:#bbb;">Basurales: Abr 2026 · Street View: Google imagery · NBI: INDEC censo 2010</span>
 </div>
 
 <div id="map"></div>
 
 <div id="legend">
   <div class="panel-header" onclick="togglePanel('legend')">
-    <div class="leg-title">Legend</div>
+    <div class="leg-title" id="lbl-legend">Leyenda</div>
     <button class="panel-toggle" id="legend-toggle">▼</button>
   </div>
   <div class="panel-body">
-    <div class="leg-row"><div class="leg-pin" style="width:16px;height:16px;background:#111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;border:3px solid #111;"></div> Human confirmed ★</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#fff;border-style:dashed;border-color:#111;"></div> Borderline (human)</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#111;"></div> High severity (AI)</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#fff;"></div> Medium severity (AI)</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#fff;border-color:#999;"></div> Low severity (AI)</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#111;border-style:dashed;"></div> Street View source</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;"></div> Dual confirmed</div>
-    <div class="leg-row"><div class="leg-pin" style="background:#fff;border:3px solid #111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;font-size:8px;display:flex;align-items:center;justify-content:center;">★</div> Mariano (ground truth)</div>
+    <div class="leg-row"><div class="leg-pin" style="width:16px;height:16px;background:#111;box-shadow:0 0 0 2px #fff,0 0 0 4px #111;border:3px solid #111;"></div> <span class="leg-lbl" data-key="legConfirmed">Confirmado</span></div>
+    <div class="leg-row"><div class="leg-pin" style="background:#111;"></div> <span class="leg-lbl" data-key="legDetected">Detectado (IA)</span></div>
+    <div class="leg-row"><div class="leg-pin" style="background:#fff;border-style:dashed;border-color:#111;"></div> <span class="leg-lbl" data-key="legBorderline">Dudoso</span></div>
+    <div class="leg-row"><div class="leg-pin" style="background:#F0B500;border:2px solid #fff;border-radius:3px;transform:rotate(45deg);"></div> <span class="leg-lbl" data-key="legCommunity">Comunidad</span></div>
   </div>
 </div>
 
 <a id="wa-btn" href="https://wa.me/14155238886?text=Quiero+reportar+un+basural" target="_blank" rel="noopener">
-  💬 WhatsApp
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  WhatsApp
 </a>
 <button id="submit-btn">📍 Reportar</button>
 
 <div id="filter-bar">
   <div class="panel-header" onclick="togglePanel('filter-bar')">
-    <div class="fb-title">Filter</div>
+    <div class="fb-title">Filtrar</div>
     <button class="panel-toggle" id="filter-bar-toggle">▼</button>
   </div>
   <div class="panel-body">
@@ -593,13 +614,27 @@
   </div>
 </div>
 
-<!-- Submit modal -->
+<!-- Location pick banner (shown instead of modal during step 1) -->
+<div id="pick-banner">
+  📍 Tocá el mapa para marcar el basural
+  <button id="pick-banner-cancel">Cancelar</button>
+</div>
+
+<!-- Submit modal (shown after location is picked) -->
 <div class="modal-overlay" id="submit-modal">
   <div class="modal-box">
     <h2>Reportar un basural</h2>
-    <p class="hint">Hacé clic en el mapa para marcar la ubicación, luego adjuntá una foto.</p>
-    <div class="coord-display" id="submit-coord">Ubicación: (sin seleccionar)</div>
-    <input type="file" id="submit-photo" accept="image/*">
+    <div class="coord-display">
+      <span id="submit-coord">—</span>
+      <button class="coord-change" id="submit-repin">cambiar</button>
+    </div>
+    <div class="drop-zone" id="submit-drop">
+      <input type="file" id="submit-photo" accept="image/*" multiple>
+      <div class="drop-icon">📷</div>
+      <div class="drop-text">Arrastrá fotos aquí o hacé clic</div>
+      <div class="drop-sub">hasta 2 fotos · JPG, PNG, WEBP</div>
+    </div>
+    <div class="photo-previews" id="submit-previews"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="submit-cancel">Cancelar</button>
       <button class="btn-primary" id="submit-confirm" disabled>Enviar</button>
@@ -612,9 +647,14 @@
 <div class="modal-overlay" id="contest-modal">
   <div class="modal-box">
     <h2>Contestar este reporte</h2>
-    <p class="hint">Subí una foto que muestre que el lugar está limpio.</p>
-    <div class="coord-display" id="contest-coord"></div>
-    <input type="file" id="contest-photo" accept="image/*">
+    <div class="coord-display"><span id="contest-coord"></span></div>
+    <div class="drop-zone" id="contest-drop">
+      <input type="file" id="contest-photo" accept="image/*" multiple>
+      <div class="drop-icon">📷</div>
+      <div class="drop-text">Arrastrá fotos aquí o hacé clic</div>
+      <div class="drop-sub">hasta 2 fotos · JPG, PNG, WEBP</div>
+    </div>
+    <div class="photo-previews" id="contest-previews"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="contest-cancel">Cancelar</button>
       <button class="btn-primary" id="contest-confirm" disabled>Enviar</button>
@@ -876,20 +916,16 @@ function renderAll() {
       return;
     }
     const verdict = s.human_verdict;
-    const sev = s.severity || 'low';
-    const isSV = s.source === 'streetview';
     const isDual = s.dual_confirmed === true;
 
-    // Pin class: ground truth → human verdict → AI severity
+    // 4 pin types: confirmed / detected (AI) / borderline / community (handled above)
     let pinClass;
-    if (s.source === 'ground_truth') pinClass = 'ground-truth';
-    else if (verdict === 'confirmed')     pinClass = 'human-confirmed';
-    else if (verdict === 'borderline')    pinClass = 'human-borderline';
-    else if (verdict === 'rejected')      pinClass = 'human-rejected';
-    else if (isDual)  pinClass = 'dual';
-    else pinClass = `${sev} ${isSV ? 'sv' : ''}`;
+    if (s.source === 'ground_truth' || verdict === 'confirmed' || isDual) pinClass = 'human-confirmed';
+    else if (verdict === 'borderline') pinClass = 'human-borderline';
+    else if (verdict === 'rejected')   pinClass = 'human-rejected';
+    else                               pinClass = '';
 
-    const size = s.source === 'ground_truth' ? 18 : verdict === 'confirmed' ? 16 : verdict === 'rejected' ? 8 : 12;
+    const size = pinClass === 'human-confirmed' ? 16 : pinClass === 'human-borderline' ? 13 : pinClass === 'human-rejected' ? 8 : 12;
 
     const icon = L.divIcon({
       className: '',
@@ -1090,6 +1126,10 @@ const STRINGS = {
     noImage: 'NO IMAGE',
     groundTruthBadge: '★ GROUND TRUTH',
     reviewLabel: 'Review',
+    legConfirmed: 'Confirmed',
+    legDetected: 'Detected (AI)',
+    legBorderline: 'Borderline',
+    legCommunity: 'Community',
   },
   es: {
     sub: 'Detección satelital y Street View de microbasurales — San Salvador de Jujuy',
@@ -1120,6 +1160,10 @@ const STRINGS = {
     noImage: 'SIN IMAGEN',
     groundTruthBadge: '★ DATO REAL',
     reviewLabel: 'Revisión',
+    legConfirmed: 'Confirmado',
+    legDetected: 'Detectado (IA)',
+    legBorderline: 'Dudoso',
+    legCommunity: 'Comunidad',
   }
 };
 
@@ -1151,8 +1195,23 @@ function applyLang() {
   });
 
   // Panel titles
-  document.querySelector('#legend .leg-title').textContent = t.legendTitle;
+  document.getElementById('lbl-legend').textContent = t.legendTitle;
   document.querySelector('#filter-bar .fb-title').textContent = t.filterTitle;
+
+  // Stats labels
+  document.getElementById('lbl-total').textContent     = t.statSites;
+  document.getElementById('lbl-confirmed').textContent = t.statConfirmed;
+  document.getElementById('lbl-high').textContent      = t.statHigh;
+  document.getElementById('lbl-sat').textContent       = t.statSat;
+  document.getElementById('lbl-sv').textContent        = t.statSv;
+  document.getElementById('lbl-nbi').textContent       = t.statNbi;
+  document.getElementById('lbl-dual').textContent      = t.statDual;
+  document.getElementById('lbl-gt').textContent        = t.statGt;
+
+  // Legend rows
+  document.querySelectorAll('.leg-lbl').forEach(el => {
+    el.textContent = t[el.dataset.key] || el.textContent;
+  });
 }
 
 // Apply default language on load
@@ -1162,47 +1221,121 @@ applyLang();
 const WORKER_URL = 'https://lupa-submission.jmunson0711.workers.dev';
 let submitLat = null, submitLng = null;
 let submitMarker = null;
+let submitPhotos = []; // File[]
 let pickingLocation = false;
 let contestLat = null, contestLng = null;
 
-document.getElementById('submit-btn').addEventListener('click', () => {
-  submitLat = null; submitLng = null;
-  document.getElementById('submit-coord').textContent = 'Ubicación: (hacé clic en el mapa)';
-  document.getElementById('submit-photo').value = '';
-  document.getElementById('submit-confirm').disabled = true;
+function startLocationPick() {
+  pickingLocation = true;
+  document.getElementById('submit-modal').classList.remove('open');
+  document.getElementById('pick-banner').classList.add('active');
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function stopLocationPick() {
+  pickingLocation = false;
+  document.getElementById('pick-banner').classList.remove('active');
+  map.getContainer().style.cursor = '';
+}
+
+function openSubmitStep2() {
+  document.getElementById('submit-coord').textContent =
+    `${submitLat.toFixed(5)}, ${submitLng.toFixed(5)}`;
   document.getElementById('submit-msg').textContent = '';
   document.getElementById('submit-modal').classList.add('open');
-  pickingLocation = true;
-  map.getContainer().style.cursor = 'crosshair';
+  updateSubmitButton();
+}
+
+function cancelSubmit() {
+  stopLocationPick();
+  document.getElementById('submit-modal').classList.remove('open');
+  submitPhotos = [];
+  renderPreviews('submit-previews', submitPhotos, () => updateSubmitButton());
+  if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+}
+
+document.getElementById('submit-btn').addEventListener('click', () => {
+  submitLat = null; submitLng = null; submitPhotos = [];
+  renderPreviews('submit-previews', submitPhotos, () => updateSubmitButton());
+  startLocationPick();
 });
 
-document.getElementById('submit-cancel').addEventListener('click', () => {
+document.getElementById('pick-banner-cancel').addEventListener('click', cancelSubmit);
+document.getElementById('submit-cancel').addEventListener('click', cancelSubmit);
+
+document.getElementById('submit-repin').addEventListener('click', () => {
   document.getElementById('submit-modal').classList.remove('open');
-  pickingLocation = false;
-  map.getContainer().style.cursor = '';
-  if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+  startLocationPick();
 });
 
 map.on('click', e => {
   if (!pickingLocation) return;
   submitLat = e.latlng.lat;
   submitLng = e.latlng.lng;
-  document.getElementById('submit-coord').textContent =
-    `Ubicación: ${submitLat.toFixed(5)}, ${submitLng.toFixed(5)}`;
   if (submitMarker) map.removeLayer(submitMarker);
   submitMarker = L.circleMarker([submitLat, submitLng], {
     radius: 8, color: '#111', fillColor: '#F0B500', fillOpacity: 0.9, weight: 2,
   }).addTo(map);
-  updateSubmitButton();
+  stopLocationPick();
+  openSubmitStep2();
 });
 
-document.getElementById('submit-photo').addEventListener('change', updateSubmitButton);
-
 function updateSubmitButton() {
-  const hasLocation = submitLat != null;
-  const hasPhoto = document.getElementById('submit-photo').files.length > 0;
-  document.getElementById('submit-confirm').disabled = !(hasLocation && hasPhoto);
+  document.getElementById('submit-confirm').disabled =
+    !(submitLat != null && submitPhotos.length > 0);
 }
+
+// ── Drop zone helpers ──────────────────────────────
+function setupDropZone(zoneId, fileInputId, photosArr, previewsId, onUpdate) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(fileInputId);
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files, photosArr, previewsId, onUpdate);
+  });
+  input.addEventListener('change', () => {
+    addFiles(input.files, photosArr, previewsId, onUpdate);
+    input.value = '';
+  });
+}
+
+function addFiles(fileList, photosArr, previewsId, onUpdate) {
+  for (const f of fileList) {
+    if (!f.type.startsWith('image/')) continue;
+    if (photosArr.length >= 2) break;
+    photosArr.push(f);
+  }
+  renderPreviews(previewsId, photosArr, onUpdate);
+}
+
+function renderPreviews(containerId, photosArr, onUpdate) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  photosArr.forEach((f, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    const rm = document.createElement('button');
+    rm.className = 'rm-photo';
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      photosArr.splice(i, 1);
+      renderPreviews(containerId, photosArr, onUpdate);
+      onUpdate();
+    });
+    thumb.appendChild(img);
+    thumb.appendChild(rm);
+    container.appendChild(thumb);
+  });
+  onUpdate();
+}
+
+setupDropZone('submit-drop', 'submit-photo', submitPhotos, 'submit-previews', updateSubmitButton);
 
 document.getElementById('submit-confirm').addEventListener('click', async () => {
   const btn = document.getElementById('submit-confirm');
@@ -1214,18 +1347,18 @@ document.getElementById('submit-confirm').addEventListener('click', async () => 
   const fd = new FormData();
   fd.append('lat', submitLat);
   fd.append('lng', submitLng);
-  fd.append('photo', document.getElementById('submit-photo').files[0]);
+  fd.append('photo', submitPhotos[0]);
 
   try {
     const res = await fetch(`${WORKER_URL}/submit`, { method: 'POST', body: fd });
     if (res.ok) {
       msg.className = 'modal-msg ok';
-      msg.textContent = '✅ Reporte enviado. Gracias!';
-      pickingLocation = false;
-      map.getContainer().style.cursor = '';
+      msg.textContent = '✅ Reporte enviado. ¡Gracias!';
       setTimeout(() => {
         document.getElementById('submit-modal').classList.remove('open');
         if (submitMarker) { map.removeLayer(submitMarker); submitMarker = null; }
+        submitPhotos = [];
+        renderPreviews('submit-previews', submitPhotos, updateSubmitButton);
       }, 2000);
     } else {
       const data = await res.json().catch(() => ({}));
@@ -1241,11 +1374,20 @@ document.getElementById('submit-confirm').addEventListener('click', async () => 
 });
 
 // ── Contest modal ─────────────────────────────────
+let contestPhotos = [];
+
+setupDropZone('contest-drop', 'contest-photo', contestPhotos, 'contest-previews', () => {
+  document.getElementById('contest-confirm').disabled = contestPhotos.length === 0;
+});
+
 function openContestModal(lat, lng) {
   contestLat = lat; contestLng = lng;
+  contestPhotos = [];
+  renderPreviews('contest-previews', contestPhotos, () => {
+    document.getElementById('contest-confirm').disabled = true;
+  });
   document.getElementById('contest-coord').textContent =
-    `Ubicación: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-  document.getElementById('contest-photo').value = '';
+    `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
   document.getElementById('contest-confirm').disabled = true;
   document.getElementById('contest-msg').textContent = '';
   document.getElementById('contest-modal').classList.add('open');
@@ -1253,19 +1395,10 @@ function openContestModal(lat, lng) {
 
 document.getElementById('contest-cancel').addEventListener('click', () => {
   document.getElementById('contest-modal').classList.remove('open');
-});
-document.getElementById('contest-photo').addEventListener('change', () => {
-  document.getElementById('contest-confirm').disabled =
-    document.getElementById('contest-photo').files.length === 0;
+  contestPhotos = [];
 });
 
 document.getElementById('contest-confirm').addEventListener('click', async () => {
-  const photoFiles = document.getElementById('contest-photo').files;
-  if (photoFiles.length === 0) {
-    document.getElementById('contest-msg').className = 'modal-msg err';
-    document.getElementById('contest-msg').textContent = 'Necesitás adjuntar una foto.';
-    return;
-  }
   const btn = document.getElementById('contest-confirm');
   const msg = document.getElementById('contest-msg');
   btn.disabled = true;
@@ -1275,13 +1408,14 @@ document.getElementById('contest-confirm').addEventListener('click', async () =>
   const fd = new FormData();
   fd.append('lat', contestLat);
   fd.append('lng', contestLng);
-  fd.append('photo', photoFiles[0]);
+  fd.append('photo', contestPhotos[0]);
 
   try {
     const res = await fetch(`${WORKER_URL}/contest`, { method: 'POST', body: fd });
     if (res.ok) {
       msg.className = 'modal-msg ok';
-      msg.textContent = '✅ Contestación enviada. Gracias!';
+      msg.textContent = '✅ Contestación enviada. ¡Gracias!';
+      contestPhotos = [];
       setTimeout(() => document.getElementById('contest-modal').classList.remove('open'), 2000);
     } else {
       const data = await res.json().catch(() => ({}));
