@@ -794,9 +794,6 @@ let removedSites = [];
 // ── GitHub Pages mode ────────────────────────────────
 if (window.location.hostname.includes('github.io')) {
   document.getElementById('load-label').style.display = 'none';
-
-  // Hide unreviewed AI detections on public map — show only verified sites
-  document.getElementById('f-detected').checked = false;
 }
 
 // ── Auto-load default data files ─────────────────────
