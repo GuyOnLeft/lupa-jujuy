@@ -184,13 +184,8 @@ async function handleWebhook(request, env) {
       return twiml(MSG.error);
     }
 
-    if (thanked) {
-      await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
-      return twimlSilent();
-    } else {
-      await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
-      return twiml(flow === 'contest' ? MSG.contestThanks : MSG.thanks);
-    }
+    await env.SESSIONS.put(senderHash, JSON.stringify({ flow, lat, lng, thanked: true }), { expirationTtl: 30 });
+    return thanked ? twimlSilent() : twiml(flow === 'contest' ? MSG.contestThanks : MSG.thanks);
   }
 
   return twiml(MSG.menu);
@@ -223,7 +218,7 @@ async function handleWebSubmit(request, env) {
     return new Response(JSON.stringify({ error: 'photo required' }), { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) } });
   }
 
-  // Rate limit: 5 web submissions per IP per hour
+  // Rate limit: 5 web submissions per IP per hour (best-effort — KV reads are non-atomic)
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   const rlKey = `rl_web_submit:${ip}`;
   const existing = await env.SESSIONS.get(rlKey);
@@ -411,12 +406,14 @@ export default {
       return handleAdminContestations(request, env);
     }
     const approveMatch = pathname.match(/^\/admin\/approve\/([^/]+)$/);
-    if (method === 'POST' && approveMatch) {
-      return handleAdminAction(request, env, approveMatch[1], 'approved');
+    if (approveMatch) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin') || '', true) });
+      if (method === 'POST') return handleAdminAction(request, env, approveMatch[1], 'approved');
     }
     const rejectMatch = pathname.match(/^\/admin\/reject\/([^/]+)$/);
-    if (method === 'POST' && rejectMatch) {
-      return handleAdminAction(request, env, rejectMatch[1], 'rejected');
+    if (rejectMatch) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request.headers.get('Origin') || '', true) });
+      if (method === 'POST') return handleAdminAction(request, env, rejectMatch[1], 'rejected');
     }
     const approveContestMatch = pathname.match(/^\/admin\/approve-contest\/([^/]+)$/);
     if (approveContestMatch) {
