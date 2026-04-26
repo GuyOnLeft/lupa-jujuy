@@ -893,7 +893,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 
 // Re-render when filters change
-['f-confirmed','f-detected','f-borderline','f-community'].forEach(id => {
+['f-confirmed','f-detected','f-community'].forEach(id => {
   document.getElementById(id).addEventListener('change', renderAll);
 });
 
@@ -1277,7 +1277,6 @@ function applyLang() {
   const labels = {
     'f-confirmed': t.fConfirmed,
     'f-detected':  t.fDetected,
-    'f-borderline': t.fBorderline,
     'f-community': t.fCommunity,
   };
   Object.entries(labels).forEach(([id, text]) => {
