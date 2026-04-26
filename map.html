@@ -342,10 +342,8 @@
   .pin.human-pending    { background: #fff; border-color: #ccc; }
   .pin.community {
     background: #F0B500;
-    border: 2px solid #fff;
-    border-radius: 3px;
-    transform: rotate(45deg);
-    position: relative;
+    border: 2px solid #111;
+    box-shadow: 0 0 0 2px #F0B500;
   }
 
   /* ── Filter bar ─────────────────────────────────── */
@@ -961,7 +959,7 @@ function renderAll() {
     const size = 12;
     const icon = L.divIcon({
       className: '',
-      html: `<div class="pin community">${count > 1 ? `<span style="position:absolute;top:-8px;right:-8px;background:#F0B500;color:#111;border-radius:50%;width:14px;height:14px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;">${count}</span>` : ''}</div>`,
+      html: `<div class="pin community"></div>`,
       iconSize: [size, size],
       iconAnchor: [size/2, size/2],
       popupAnchor: [0, -10],
